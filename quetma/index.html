@@ -796,7 +796,7 @@
     statusText.textContent = 'Đang mở camera…';
     if (!html5QrCode) html5QrCode = new Html5Qrcode('reader', { verbose: false });
 
-    html5QrCode.start(undefined, buildScanConfig(), onScanSuccess, onScanFailure)
+    html5QrCode.start({}, buildScanConfig(), onScanSuccess, onScanFailure)
       .then(function () {
         setScanningUI(true);
         setupTrackControls();
