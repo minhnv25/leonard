@@ -283,6 +283,14 @@
     border-radius: 12px;
     padding: 12px 14px;
   }
+  .panel-label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
 
   .export-fields {
     display: flex;
@@ -309,8 +317,37 @@
     padding: 9px 11px;
     font-family: var(--font-mono);
     font-size: 13.5px;
+    width: 100%;
   }
   .filename-row input[type="text"]:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,14,17,0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 100;
+  }
+  .modal-card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 20px;
+    width: 100%;
+    max-width: 340px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.28);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .modal-card h3 { font-size: 17px; font-weight: 700; }
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+  }
+  .modal-actions .btn { flex: 1; }
   .export-fields label {
     display: flex;
     align-items: center;
@@ -458,10 +495,7 @@
   </div>
 
   <div class="export-panel" id="exportPanel" hidden>
-    <label class="filename-row">
-      <span>Tên file xuất</span>
-      <input type="text" id="filenameInput" autocomplete="off" spellcheck="false">
-    </label>
+    <span class="panel-label">Thông tin đưa vào file</span>
     <div class="export-fields">
       <label class="locked"><input type="checkbox" checked disabled> Mã (luôn có)</label>
       <label><input type="checkbox" data-field="format" checked> Định dạng mã</label>
@@ -487,6 +521,20 @@
   <button class="btn" id="exportCsvBtn">Xuất CSV</button>
   <button class="btn btn-primary" id="exportXlsxBtn">Xuất Excel</button>
 </footer>
+
+<div class="modal-overlay" id="exportModalOverlay" hidden>
+  <div class="modal-card">
+    <h3 id="exportModalTitle">Xuất file</h3>
+    <label class="filename-row">
+      <span>Tên file</span>
+      <input type="text" id="filenameInput" autocomplete="off" spellcheck="false">
+    </label>
+    <div class="modal-actions">
+      <button class="btn" id="exportModalCancel">Hủy</button>
+      <button class="btn btn-primary" id="exportModalConfirm">Xuất file</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -521,6 +569,10 @@
   var exportOptionsBtn = document.getElementById('exportOptionsBtn');
   var exportPanel = document.getElementById('exportPanel');
   var filenameInput = document.getElementById('filenameInput');
+  var exportModalOverlay = document.getElementById('exportModalOverlay');
+  var exportModalTitle = document.getElementById('exportModalTitle');
+  var exportModalCancel = document.getElementById('exportModalCancel');
+  var exportModalConfirm = document.getElementById('exportModalConfirm');
   var scannerOverlay = document.getElementById('scannerOverlay');
   var torchBtn = document.getElementById('torchBtn');
   var zoomBtn = document.getElementById('zoomBtn');
@@ -920,13 +972,10 @@
       .slice(0, 120);
   }
 
-  function getExportFilename(ext) {
+  function resolveFilenameBase() {
     var raw = sanitizeFilename(filenameInput.value || '');
-    var base = raw || defaultFilename();
-    return base + '.' + ext;
+    return raw || defaultFilename();
   }
-
-  if (!filenameInput.value) filenameInput.value = defaultFilename();
 
   function downloadBlob(blob, filename) {
     var url = URL.createObjectURL(blob);
@@ -939,8 +988,7 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
   }
 
-  exportCsvBtn.addEventListener('click', function () {
-    if (entries.size === 0) { alert('Chưa có mã nào để xuất.'); return; }
+  function doExportCsv(base) {
     var rows = buildRows();
     var csv = rows.map(function (r) {
       return r.map(function (v) {
@@ -949,11 +997,10 @@
       }).join(',');
     }).join('\r\n');
     var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    downloadBlob(blob, getExportFilename('csv'));
-  });
+    downloadBlob(blob, base + '.csv');
+  }
 
-  exportXlsxBtn.addEventListener('click', function () {
-    if (entries.size === 0) { alert('Chưa có mã nào để xuất.'); return; }
+  function doExportXlsx(base) {
     if (typeof XLSX === 'undefined') { alert('Không tải được thư viện xuất Excel. Kiểm tra kết nối mạng rồi thử lại.'); return; }
     var rows = buildRows();
     var ws = XLSX.utils.aoa_to_sheet(rows);
@@ -961,8 +1008,47 @@
     ws['!cols'] = [{ wch: 26 }].concat(fields.map(function (f) { return { wch: f.wch }; }));
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Ket qua quet');
-    XLSX.writeFile(wb, getExportFilename('xlsx'));
+    XLSX.writeFile(wb, base + '.xlsx');
+  }
+
+  /** ---------- Export confirm modal ---------- **/
+  var pendingExportType = null;
+
+  function openExportModal(type) {
+    if (entries.size === 0) { alert('Chưa có mã nào để xuất.'); return; }
+    pendingExportType = type;
+    exportModalTitle.textContent = type === 'xlsx' ? 'Xuất Excel' : 'Xuất CSV';
+    if (!filenameInput.value) filenameInput.value = defaultFilename();
+    exportModalOverlay.hidden = false;
+    exportModalConfirm.textContent = type === 'xlsx' ? 'Xuất Excel' : 'Xuất CSV';
+    setTimeout(function () { filenameInput.focus(); filenameInput.select(); }, 30);
+  }
+
+  function closeExportModal() {
+    exportModalOverlay.hidden = true;
+    pendingExportType = null;
+  }
+
+  exportCsvBtn.addEventListener('click', function () { openExportModal('csv'); });
+  exportXlsxBtn.addEventListener('click', function () { openExportModal('xlsx'); });
+
+  exportModalCancel.addEventListener('click', closeExportModal);
+  exportModalOverlay.addEventListener('click', function (e) {
+    if (e.target === exportModalOverlay) closeExportModal();
   });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !exportModalOverlay.hidden) closeExportModal();
+  });
+  filenameInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') exportModalConfirm.click();
+  });
+
+  exportModalConfirm.addEventListener('click', function () {
+    var base = resolveFilenameBase();
+    if (pendingExportType === 'xlsx') doExportXlsx(base); else doExportCsv(base);
+    closeExportModal();
+  });
+
 
   /** ---------- PWA service worker ---------- **/
   if ('serviceWorker' in navigator) {
