@@ -585,6 +585,12 @@
 
   /** ---------- Feedback: beep + vibrate ---------- **/
   var audioCtx = null;
+  function primeAudio() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (e) { /* Web Audio not available on this browser */ }
+  }
   function beep(freq, dur) {
     freq = freq || 1046.5; dur = dur || 110;
     try {
@@ -874,7 +880,9 @@
   }
 
   toggleBtn.addEventListener('click', function () {
-    if (scanning) stopScanning(); else startScanning();
+    if (scanning) { stopScanning(); return; }
+    primeAudio();
+    startScanning();
   });
 
   /** ---------- Manual entry ---------- **/
