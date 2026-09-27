@@ -73,6 +73,7 @@
   }
 
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { height: 100%; }
   body {
     margin: 0;
@@ -195,6 +196,39 @@
     padding: 12px;
     border-top: 1px solid var(--border);
     align-items: center;
+    flex-wrap: wrap;
+  }
+  .scanner-extra {
+    display: flex;
+    gap: 10px;
+    padding: 0 12px 12px;
+    align-items: center;
+  }
+  .icon-btn {
+    appearance: none;
+    width: 36px; height: 36px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .icon-btn.active { background: var(--accent); border-color: var(--accent); color: var(--on-primary); }
+  .icon-btn:active { transform: scale(0.95); }
+  .zoom-row {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .zoom-row svg { flex-shrink: 0; color: var(--text-muted); width: 16px; height: 16px; }
+  .zoom-row input[type="range"] {
+    flex: 1;
+    min-width: 0;
+    accent-color: var(--primary);
   }
   .status-dot {
     width: 9px; height: 9px; border-radius: 50%;
@@ -264,6 +298,26 @@
   details.help .body { margin-top: 8px; font-size: 12.5px; color: var(--text-muted); }
   details.help ol { margin: 6px 0 0; padding-left: 18px; }
   details.help li { margin-bottom: 4px; }
+
+  .export-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .export-fields label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 2px;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .export-fields label.locked { color: var(--text-muted); }
+  .export-fields input[type="checkbox"] {
+    width: 17px; height: 17px;
+    accent-color: var(--primary);
+    flex-shrink: 0;
+  }
 
   section.results {
     display: flex;
@@ -382,6 +436,15 @@
       <span class="status-text" id="statusText">Camera đang tắt</span>
       <button class="btn btn-primary" id="toggleBtn">Bắt đầu quét</button>
     </div>
+    <div class="scanner-extra" id="scannerExtra" hidden>
+      <button class="icon-btn" id="torchBtn" hidden aria-label="Bật/tắt đèn flash">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>
+      </button>
+      <div class="zoom-row" id="zoomRow" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg>
+        <input type="range" id="zoomSlider" min="1" max="3" step="0.1" value="1">
+      </div>
+    </div>
   </div>
 
   <div class="manual-row">
@@ -398,7 +461,20 @@
         <li>Lần đầu bấm "Bắt đầu quét", trình duyệt sẽ hỏi quyền camera — chọn Cho phép.</li>
         <li>Đưa mã vào giữa khung hình, cách 10–20cm, đủ sáng.</li>
         <li>Quét lại cùng 1 mã sẽ không tạo dòng mới, chỉ tăng số lần ở mã đó.</li>
+        <li>Mã mờ, ánh sáng yếu hoặc nhãn bị phai: bật đèn flash (biểu tượng tia sét) và dùng thanh zoom để lại gần mà không mất nét.</li>
+        <li>Mã vạch bị đứt quãng thật sự (mất vạch, rách nhãn) thì không máy quét nào đọc được — cần in lại hoặc nhập tay.</li>
       </ol>
+    </div>
+  </details>
+
+  <details class="help" id="exportOptions">
+    <summary>Tùy chọn xuất file</summary>
+    <div class="body export-fields">
+      <label class="locked"><input type="checkbox" checked disabled> Mã (luôn có)</label>
+      <label><input type="checkbox" data-field="format" checked> Định dạng mã</label>
+      <label><input type="checkbox" data-field="count" checked> Số lần quét</label>
+      <label><input type="checkbox" data-field="firstTime" checked> Lần đầu quét</label>
+      <label><input type="checkbox" data-field="lastTime" checked> Lần quét cuối</label>
     </div>
   </details>
 
@@ -449,6 +525,11 @@
   var clearAllBtn = document.getElementById('clearAllBtn');
   var exportCsvBtn = document.getElementById('exportCsvBtn');
   var exportXlsxBtn = document.getElementById('exportXlsxBtn');
+  var scannerExtra = document.getElementById('scannerExtra');
+  var torchBtn = document.getElementById('torchBtn');
+  var zoomRow = document.getElementById('zoomRow');
+  var zoomSlider = document.getElementById('zoomSlider');
+  var torchOn = false;
 
   /** ---------- Feedback: beep + vibrate ---------- **/
   var audioCtx = null;
@@ -614,7 +695,58 @@
     statusText.textContent = isOn ? 'Đang quét…' : 'Camera đang tắt';
     toggleBtn.textContent = isOn ? 'Dừng quét' : 'Bắt đầu quét';
     toggleBtn.classList.toggle('stop', isOn);
+    scannerExtra.hidden = !isOn;
+    if (!isOn) {
+      torchBtn.hidden = true;
+      zoomRow.hidden = true;
+      torchOn = false;
+      torchBtn.classList.remove('active');
+    }
   }
+
+  function setupTrackControls() {
+    if (!html5QrCode || !html5QrCode.getRunningTrackCapabilities) return;
+    var caps = {};
+    try { caps = html5QrCode.getRunningTrackCapabilities() || {}; } catch (e) { caps = {}; }
+
+    if (caps.torch) {
+      torchBtn.hidden = false;
+    }
+    if (caps.zoom) {
+      zoomRow.hidden = false;
+      var min = caps.zoom.min != null ? caps.zoom.min : 1;
+      var max = caps.zoom.max != null ? caps.zoom.max : 3;
+      var step = caps.zoom.step || 0.1;
+      zoomSlider.min = String(min);
+      zoomSlider.max = String(max);
+      zoomSlider.step = String(step);
+      var current = 1;
+      try {
+        var settings = html5QrCode.getRunningTrackSettings();
+        if (settings && settings.zoom) current = settings.zoom;
+      } catch (e) { /* ignore */ }
+      zoomSlider.value = String(current);
+    }
+  }
+
+  torchBtn.addEventListener('click', function () {
+    if (!html5QrCode) return;
+    torchOn = !torchOn;
+    try {
+      html5QrCode.applyVideoConstraints({ advanced: [{ torch: torchOn }] });
+      torchBtn.classList.toggle('active', torchOn);
+    } catch (e) {
+      torchOn = false;
+      alert('Thiết bị này không hỗ trợ bật đèn flash qua trình duyệt.');
+    }
+  });
+
+  zoomSlider.addEventListener('input', function () {
+    if (!html5QrCode) return;
+    try {
+      html5QrCode.applyVideoConstraints({ advanced: [{ zoom: parseFloat(zoomSlider.value) }] });
+    } catch (e) { /* ignore */ }
+  });
 
   function startScanning() {
     if (typeof Html5Qrcode === 'undefined') {
@@ -623,16 +755,30 @@
     }
     toggleBtn.disabled = true;
     statusText.textContent = 'Đang mở camera…';
-    if (!html5QrCode) html5QrCode = new Html5Qrcode('reader');
+    if (!html5QrCode) html5QrCode = new Html5Qrcode('reader', { verbose: false });
 
-    var config = { fps: 12, qrbox: function (vw, vh) {
-      var size = Math.floor(Math.min(vw, vh) * 0.72);
-      return { width: size, height: size };
-    }, aspectRatio: 4 / 3 };
+    var config = {
+      fps: 15,
+      qrbox: function (vw, vh) {
+        var size = Math.floor(Math.min(vw, vh) * 0.8);
+        return { width: size, height: size };
+      },
+      aspectRatio: 4 / 3,
+      disableFlip: false,
+      videoConstraints: {
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        advanced: [{ focusMode: 'continuous' }]
+      },
+      experimentalFeatures: {
+        useBarCodeDetectorIfSupported: true
+      }
+    };
 
-    html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess, onScanFailure)
+    html5QrCode.start({ facingMode: { ideal: 'environment' } }, config, onScanSuccess, onScanFailure)
       .then(function () {
         setScanningUI(true);
+        setupTrackControls();
       })
       .catch(function (err) {
         statusText.textContent = 'Camera đang tắt';
@@ -671,18 +817,61 @@
   clearAllBtn.addEventListener('click', clearAll);
 
   /** ---------- Export ---------- **/
+  var exportFieldDefs = [
+    { key: 'format', label: 'Định dạng', wch: 14, get: function (e) { return e.format; } },
+    { key: 'count', label: 'Số lần quét', wch: 12, get: function (e) { return e.count; } },
+    { key: 'firstTime', label: 'Lần đầu quét', wch: 20, get: function (e) { return e.firstTime.toLocaleString('vi-VN'); } },
+    { key: 'lastTime', label: 'Lần quét cuối', wch: 20, get: function (e) { return e.lastTime.toLocaleString('vi-VN'); } }
+  ];
+  var FIELD_PREFS_KEY = 'quetma_export_fields_v1';
+
+  function fieldCheckbox(key) {
+    return document.querySelector('.export-fields input[data-field="' + key + '"]');
+  }
+
+  function getSelectedFields() {
+    return exportFieldDefs.filter(function (f) {
+      var cb = fieldCheckbox(f.key);
+      return cb ? cb.checked : true;
+    });
+  }
+
+  function loadFieldPrefs() {
+    try {
+      var raw = localStorage.getItem(FIELD_PREFS_KEY);
+      if (!raw) return;
+      var saved = JSON.parse(raw);
+      exportFieldDefs.forEach(function (f) {
+        var cb = fieldCheckbox(f.key);
+        if (cb && typeof saved[f.key] === 'boolean') cb.checked = saved[f.key];
+      });
+    } catch (e) { /* ignore */ }
+  }
+
+  function saveFieldPrefs() {
+    try {
+      var state = {};
+      exportFieldDefs.forEach(function (f) {
+        var cb = fieldCheckbox(f.key);
+        state[f.key] = cb ? cb.checked : true;
+      });
+      localStorage.setItem(FIELD_PREFS_KEY, JSON.stringify(state));
+    } catch (e) { /* ignore */ }
+  }
+
+  document.querySelectorAll('.export-fields input[data-field]').forEach(function (cb) {
+    cb.addEventListener('change', saveFieldPrefs);
+  });
+  loadFieldPrefs();
+
   function buildRows() {
-    var rows = [['Mã', 'Định dạng', 'Số lần quét', 'Lần đầu quét', 'Lần quét cuối']];
+    var fields = getSelectedFields();
+    var header = ['Mã'].concat(fields.map(function (f) { return f.label; }));
+    var rows = [header];
     order.slice().reverse().forEach(function (code) {
       var e = entries.get(code);
       if (!e) return;
-      rows.push([
-        e.code,
-        e.format,
-        e.count,
-        e.firstTime.toLocaleString('vi-VN'),
-        e.lastTime.toLocaleString('vi-VN')
-      ]);
+      rows.push([e.code].concat(fields.map(function (f) { return f.get(e); })));
     });
     return rows;
   }
@@ -722,7 +911,8 @@
     if (typeof XLSX === 'undefined') { alert('Không tải được thư viện xuất Excel. Kiểm tra kết nối mạng rồi thử lại.'); return; }
     var rows = buildRows();
     var ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{ wch: 26 }, { wch: 14 }, { wch: 12 }, { wch: 20 }, { wch: 20 }];
+    var fields = getSelectedFields();
+    ws['!cols'] = [{ wch: 26 }].concat(fields.map(function (f) { return { wch: f.wch }; }));
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Ket qua quet');
     XLSX.writeFile(wb, 'quet-ma_' + dateStamp() + '.xlsx');
