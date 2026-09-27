@@ -99,6 +99,8 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
+    flex-wrap: wrap;
+    row-gap: 6px;
     gap: 12px;
     border-bottom: 1px solid var(--border);
   }
@@ -125,14 +127,21 @@
   }
   .stats {
     display: flex;
-    gap: 14px;
+    gap: 16px;
     font-variant-numeric: tabular-nums;
+    margin-left: auto;
+  }
+  @media (max-width: 420px) {
+    .stats { width: 100%; justify-content: space-between; margin-left: 0; }
   }
   .stat {
-    text-align: right;
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    white-space: nowrap;
   }
-  .stat .n { font-size: 18px; font-weight: 600; font-family: var(--font-mono); }
-  .stat .l { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; display:block; }
+  .stat .n { font-size: 15px; font-weight: 700; font-family: var(--font-mono); }
+  .stat .l { font-size: 10.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 
   main {
     flex: 1;
@@ -167,17 +176,6 @@
   }
   #reader video { object-fit: cover; width: 100% !important; height: 100% !important; }
   #reader img { display: none; }
-
-  .scanner-idle {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    color: var(--text-muted);
-    padding: 24px;
-    text-align: center;
-  }
-  .scanner-idle svg { width: 48px; height: 48px; color: var(--text-muted); }
 
   .scan-flash {
     position: absolute;
@@ -437,8 +435,8 @@
     <span class="tag">QR · Barcode</span>
   </div>
   <div class="stats">
-    <div class="stat"><span class="n" id="statUnique">0</span><span class="l">Mã duy nhất</span></div>
-    <div class="stat"><span class="n" id="statTotal">0</span><span class="l">Lượt quét</span></div>
+    <div class="stat"><span class="l">Mã duy nhất</span><span class="n" id="statUnique">0</span></div>
+    <div class="stat"><span class="l">Lượt quét</span><span class="n" id="statTotal">0</span></div>
   </div>
 </header>
 
@@ -448,10 +446,6 @@
     <div class="scanner-viewport">
       <div id="reader"></div>
       <div class="scan-flash" id="scanFlash"></div>
-      <div class="scanner-idle" id="scannerIdle">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20v.01"/></svg>
-        <span>Bấm "Bắt đầu quét" để mở camera</span>
-      </div>
     </div>
     <div class="scanner-controls">
       <span class="status-dot" id="statusDot"></span>
@@ -473,21 +467,6 @@
     <input type="text" id="manualInput" placeholder="Nhập mã thủ công…" inputmode="text" autocomplete="off">
     <button class="btn" id="manualAddBtn">Thêm</button>
   </div>
-
-  <details class="help">
-    <summary>Cài đặt như ứng dụng &amp; mẹo dùng camera</summary>
-    <div class="body">
-      <strong>Android (Chrome):</strong> menu ⋮ → "Cài đặt ứng dụng" / "Thêm vào Màn hình chính".<br>
-      <strong>iPhone (Safari):</strong> nút Chia sẻ → "Thêm vào Màn hình chính".
-      <ol>
-        <li>Lần đầu bấm "Bắt đầu quét", trình duyệt sẽ hỏi quyền camera — chọn Cho phép.</li>
-        <li>Đưa mã vào giữa khung hình, cách 10–20cm, đủ sáng.</li>
-        <li>Quét lại cùng 1 mã sẽ không tạo dòng mới, chỉ tăng số lần ở mã đó.</li>
-        <li>Mã mờ, ánh sáng yếu hoặc nhãn bị phai: bật đèn flash (biểu tượng tia sét) và dùng thanh zoom để lại gần mà không mất nét.</li>
-        <li>Mã vạch bị đứt quãng thật sự (mất vạch, rách nhãn) thì không máy quét nào đọc được — cần in lại hoặc nhập tay.</li>
-      </ol>
-    </div>
-  </details>
 
   <details class="help" id="exportOptions">
     <summary>Tùy chọn xuất file</summary>
@@ -539,7 +518,6 @@
 
   /** ---------- DOM refs ---------- **/
   var readerEl = document.getElementById('reader');
-  var idleEl = document.getElementById('scannerIdle');
   var flashEl = document.getElementById('scanFlash');
   var toggleBtn = document.getElementById('toggleBtn');
   var statusDot = document.getElementById('statusDot');
@@ -719,7 +697,6 @@
 
   function setScanningUI(isOn) {
     scanning = isOn;
-    idleEl.hidden = isOn;
     statusDot.classList.toggle('live', isOn);
     statusText.textContent = isOn ? 'Đang quét…' : 'Camera đang tắt';
     toggleBtn.textContent = isOn ? 'Dừng quét' : 'Bắt đầu quét';
