@@ -1,0 +1,742 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trạm Quét Mã</title>
+<meta name="description" content="Quét QR và mã vạch hàng loạt, gộp mã trùng, xuất Excel/CSV, báo hiệu bíp và rung.">
+<meta name="theme-color" content="#0F5C56">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Trạm Quét Mã">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #F7F7F5;
+    --surface: #FFFFFF;
+    --surface-sunken: #EFEFEC;
+    --text: #14181C;
+    --text-muted: #5B6570;
+    --primary: #0F5C56;
+    --primary-strong: #0B433F;
+    --on-primary: #FFFFFF;
+    --accent: #C9860E;
+    --border: #DEE3E1;
+    --danger: #B0362E;
+    --success: #256B4C;
+    --shadow: 0 1px 2px rgba(20,24,28,0.06), 0 4px 12px rgba(20,24,28,0.06);
+    --font-display: 'Barlow Semi Condensed', sans-serif;
+    --font-body: 'IBM Plex Sans', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #10151A;
+      --surface: #1A2129;
+      --surface-sunken: #141A20;
+      --text: #EDEFEF;
+      --text-muted: #9AA5AC;
+      --primary: #3FA79B;
+      --primary-strong: #55BDB1;
+      --on-primary: #06201D;
+      --accent: #E8A93D;
+      --border: #2A333B;
+      --danger: #E5695F;
+      --success: #57C08C;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #10151A;
+    --surface: #1A2129;
+    --surface-sunken: #141A20;
+    --text: #EDEFEF;
+    --text-muted: #9AA5AC;
+    --primary: #3FA79B;
+    --primary-strong: #55BDB1;
+    --on-primary: #06201D;
+    --accent: #E8A93D;
+    --border: #2A333B;
+    --danger: #E5695F;
+    --success: #57C08C;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.35);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+    padding-inline: 16px;
+    display: flex;
+    flex-direction: column;
+    -webkit-tap-highlight-color: transparent;
+  }
+  h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+  button { font-family: inherit; }
+
+  header.topbar {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 20;
+    background: var(--bg);
+    padding-block: 14px 10px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  header.topbar .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  header.topbar h1 {
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+  }
+  header.topbar .tag {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+  @media (max-width: 360px) {
+    header.topbar .tag { display: none; }
+  }
+  .stats {
+    display: flex;
+    gap: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat {
+    text-align: right;
+  }
+  .stat .n { font-size: 18px; font-weight: 600; font-family: var(--font-mono); }
+  .stat .l { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; display:block; }
+
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-block: 16px 12px;
+    max-width: 640px;
+    width: 100%;
+    margin-inline: auto;
+  }
+
+  .scanner-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .scanner-viewport {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: var(--surface-sunken);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #reader {
+    width: 100% !important;
+    height: 100% !important;
+  }
+  #reader video { object-fit: cover; width: 100% !important; height: 100% !important; }
+  #reader img { display: none; }
+
+  .scanner-idle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-muted);
+    padding: 24px;
+    text-align: center;
+  }
+  .scanner-idle svg { width: 48px; height: 48px; color: var(--text-muted); }
+
+  .scan-flash {
+    position: absolute;
+    inset: 0;
+    background: var(--success);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .scan-flash.dup { background: var(--accent); }
+  .scan-flash.on { animation: flash 380ms ease-out; }
+  @keyframes flash { 0% { opacity: 0.35; } 100% { opacity: 0; } }
+
+  .scanner-controls {
+    display: flex;
+    gap: 10px;
+    padding: 12px;
+    border-top: 1px solid var(--border);
+    align-items: center;
+  }
+  .status-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .status-dot.live { background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 25%, transparent); animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 25%, transparent);} 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--success) 10%, transparent);} }
+  .status-text { font-size: 12.5px; color: var(--text-muted); flex: 1; }
+
+  .btn {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 9px;
+    padding: 10px 14px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+    transition: transform 80ms ease;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .btn-primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+  .btn-primary.stop { background: var(--danger); border-color: var(--danger); }
+  .btn-ghost { background: transparent; border-color: transparent; color: var(--primary); padding: 8px 6px; }
+  .btn-sm { padding: 7px 10px; font-size: 12.5px; }
+  .btn-block { width: 100%; }
+  .btn[disabled] { opacity: 0.45; cursor: default; }
+
+  .manual-row {
+    display: flex;
+    gap: 8px;
+  }
+  .manual-row input {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 9px;
+    padding: 10px 12px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+  }
+  .manual-row input:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+  details.help {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 14px;
+  }
+  details.help summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    list-style: none;
+  }
+  details.help summary::-webkit-details-marker { display: none; }
+  details.help .body { margin-top: 8px; font-size: 12.5px; color: var(--text-muted); }
+  details.help ol { margin: 6px 0 0; padding-left: 18px; }
+  details.help li { margin-bottom: 4px; }
+
+  section.results {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .results-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .results-head h2 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .empty-state {
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    padding: 28px 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  ul.entry-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .entry {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: var(--shadow);
+  }
+  .entry.new { animation: pop 320ms ease; }
+  @keyframes pop { 0% { transform: scale(0.97); } 60% { transform: scale(1.01); } 100% { transform: scale(1); } }
+  .entry-main { flex: 1; min-width: 0; }
+  .entry-code {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .entry-meta {
+    display: flex;
+    gap: 8px;
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+  }
+  .badge {
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--surface-sunken);
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+  }
+  .badge.count { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+  .entry-del {
+    flex-shrink: 0;
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .entry-del:active { transform: scale(0.95); }
+
+  footer.actionbar {
+    position: sticky;
+    bottom: 0;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    padding-top: 10px;
+    background: linear-gradient(to top, var(--bg) 65%, transparent);
+    display: flex;
+    gap: 8px;
+  }
+  footer.actionbar .btn { flex: 1; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .entry.new, .scan-flash.on, .status-dot.live { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <h1>Trạm Quét Mã</h1>
+    <span class="tag">QR · Barcode</span>
+  </div>
+  <div class="stats">
+    <div class="stat"><span class="n" id="statUnique">0</span><span class="l">Mã duy nhất</span></div>
+    <div class="stat"><span class="n" id="statTotal">0</span><span class="l">Lượt quét</span></div>
+  </div>
+</header>
+
+<main>
+
+  <div class="scanner-card">
+    <div class="scanner-viewport">
+      <div id="reader"></div>
+      <div class="scan-flash" id="scanFlash"></div>
+      <div class="scanner-idle" id="scannerIdle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20v.01"/></svg>
+        <span>Bấm "Bắt đầu quét" để mở camera</span>
+      </div>
+    </div>
+    <div class="scanner-controls">
+      <span class="status-dot" id="statusDot"></span>
+      <span class="status-text" id="statusText">Camera đang tắt</span>
+      <button class="btn btn-primary" id="toggleBtn">Bắt đầu quét</button>
+    </div>
+  </div>
+
+  <div class="manual-row">
+    <input type="text" id="manualInput" placeholder="Nhập mã thủ công…" inputmode="text" autocomplete="off">
+    <button class="btn" id="manualAddBtn">Thêm</button>
+  </div>
+
+  <details class="help">
+    <summary>Cài đặt như ứng dụng &amp; mẹo dùng camera</summary>
+    <div class="body">
+      <strong>Android (Chrome):</strong> menu ⋮ → "Cài đặt ứng dụng" / "Thêm vào Màn hình chính".<br>
+      <strong>iPhone (Safari):</strong> nút Chia sẻ → "Thêm vào Màn hình chính".
+      <ol>
+        <li>Lần đầu bấm "Bắt đầu quét", trình duyệt sẽ hỏi quyền camera — chọn Cho phép.</li>
+        <li>Đưa mã vào giữa khung hình, cách 10–20cm, đủ sáng.</li>
+        <li>Quét lại cùng 1 mã sẽ không tạo dòng mới, chỉ tăng số lần ở mã đó.</li>
+      </ol>
+    </div>
+  </details>
+
+  <section class="results">
+    <div class="results-head">
+      <h2>Kết quả</h2>
+      <button class="btn btn-ghost btn-sm" id="clearAllBtn">Xóa tất cả</button>
+    </div>
+    <div class="empty-state" id="emptyState">Chưa có mã nào được quét.</div>
+    <ul class="entry-list" id="entryList"></ul>
+  </section>
+
+</main>
+
+<footer class="actionbar">
+  <button class="btn" id="exportCsvBtn">Xuất CSV</button>
+  <button class="btn btn-primary" id="exportXlsxBtn">Xuất Excel</button>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /** ---------- State ---------- **/
+  var entries = new Map();   // code -> {code, format, count, firstTime, lastTime}
+  var lastSeenAt = new Map(); // code -> timestamp, for debounce
+  var html5QrCode = null;
+  var scanning = false;
+  var order = [];            // codes in most-recent-first order
+
+  var DEBOUNCE_MS = 1400;
+
+  /** ---------- DOM refs ---------- **/
+  var readerEl = document.getElementById('reader');
+  var idleEl = document.getElementById('scannerIdle');
+  var flashEl = document.getElementById('scanFlash');
+  var toggleBtn = document.getElementById('toggleBtn');
+  var statusDot = document.getElementById('statusDot');
+  var statusText = document.getElementById('statusText');
+  var entryList = document.getElementById('entryList');
+  var emptyState = document.getElementById('emptyState');
+  var statUnique = document.getElementById('statUnique');
+  var statTotal = document.getElementById('statTotal');
+  var manualInput = document.getElementById('manualInput');
+  var manualAddBtn = document.getElementById('manualAddBtn');
+  var clearAllBtn = document.getElementById('clearAllBtn');
+  var exportCsvBtn = document.getElementById('exportCsvBtn');
+  var exportXlsxBtn = document.getElementById('exportXlsxBtn');
+
+  /** ---------- Feedback: beep + vibrate ---------- **/
+  var audioCtx = null;
+  function beep(freq, dur) {
+    freq = freq || 1046.5; dur = dur || 110;
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.35, audioCtx.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur / 1000);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + dur / 1000 + 0.02);
+    } catch (e) { /* audio not available, ignore */ }
+  }
+  function vibrate(pattern) {
+    try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) { /* ignore */ }
+  }
+
+  function flash(isDup) {
+    flashEl.classList.remove('on', 'dup');
+    void flashEl.offsetWidth; // restart animation
+    if (isDup) flashEl.classList.add('dup');
+    flashEl.classList.add('on');
+  }
+
+  /** ---------- Data handling ---------- **/
+  function fmtTime(d) {
+    return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function registerCode(code, format) {
+    var now = Date.now();
+    var last = lastSeenAt.get(code) || 0;
+    if (now - last < DEBOUNCE_MS) return; // ignore rapid re-triggers of same code in frame
+    lastSeenAt.set(code, now);
+
+    var isDup = entries.has(code);
+    if (isDup) {
+      var e = entries.get(code);
+      e.count += 1;
+      e.lastTime = new Date();
+      order = order.filter(function (c) { return c !== code; });
+      order.unshift(code);
+    } else {
+      entries.set(code, {
+        code: code,
+        format: format || 'Không rõ',
+        count: 1,
+        firstTime: new Date(),
+        lastTime: new Date()
+      });
+      order.unshift(code);
+    }
+
+    beep(isDup ? 740 : 1175, isDup ? 90 : 120);
+    vibrate(isDup ? 60 : [40, 40, 40]);
+    flash(isDup);
+    renderList(code);
+  }
+
+  function removeCode(code) {
+    entries.delete(code);
+    lastSeenAt.delete(code);
+    order = order.filter(function (c) { return c !== code; });
+    renderList();
+  }
+
+  function clearAll() {
+    if (entries.size === 0) return;
+    if (!window.confirm) {
+      entries.clear(); lastSeenAt.clear(); order = []; renderList();
+      return;
+    }
+    var ok = window.confirm('Xóa toàn bộ ' + entries.size + ' mã đã quét?');
+    if (ok) {
+      entries.clear();
+      lastSeenAt.clear();
+      order = [];
+      renderList();
+    }
+  }
+
+  /** ---------- Rendering ---------- **/
+  function renderList(highlightCode) {
+    var total = 0;
+    entries.forEach(function (e) { total += e.count; });
+    statUnique.textContent = String(entries.size);
+    statTotal.textContent = String(total);
+
+    emptyState.hidden = entries.size !== 0;
+    entryList.innerHTML = '';
+
+    order.forEach(function (code) {
+      var e = entries.get(code);
+      if (!e) return;
+      var li = document.createElement('li');
+      li.className = 'entry' + (code === highlightCode ? ' new' : '');
+
+      var main = document.createElement('div');
+      main.className = 'entry-main';
+
+      var codeEl = document.createElement('div');
+      codeEl.className = 'entry-code';
+      codeEl.textContent = e.code;
+
+      var meta = document.createElement('div');
+      meta.className = 'entry-meta';
+
+      var fmtBadge = document.createElement('span');
+      fmtBadge.className = 'badge';
+      fmtBadge.textContent = e.format;
+      meta.appendChild(fmtBadge);
+
+      if (e.count > 1) {
+        var countBadge = document.createElement('span');
+        countBadge.className = 'badge count';
+        countBadge.textContent = '×' + e.count;
+        meta.appendChild(countBadge);
+      }
+
+      var timeSpan = document.createElement('span');
+      timeSpan.textContent = fmtTime(e.firstTime) + (e.count > 1 ? ' → ' + fmtTime(e.lastTime) : '');
+      meta.appendChild(timeSpan);
+
+      main.appendChild(codeEl);
+      main.appendChild(meta);
+
+      var delBtn = document.createElement('button');
+      delBtn.className = 'entry-del';
+      delBtn.setAttribute('aria-label', 'Xóa mã ' + e.code);
+      delBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+      delBtn.addEventListener('click', function () { removeCode(code); });
+
+      li.appendChild(main);
+      li.appendChild(delBtn);
+      entryList.appendChild(li);
+    });
+  }
+
+  /** ---------- Camera scanning ---------- **/
+  function onScanSuccess(decodedText, decodedResult) {
+    var format = 'Không rõ';
+    try {
+      if (decodedResult && decodedResult.result && decodedResult.result.format && decodedResult.result.format.formatName) {
+        format = decodedResult.result.format.formatName;
+      }
+    } catch (e) { /* ignore */ }
+    registerCode(decodedText, format);
+  }
+
+  function onScanFailure() { /* per-frame miss, ignore silently */ }
+
+  function setScanningUI(isOn) {
+    scanning = isOn;
+    idleEl.hidden = isOn;
+    statusDot.classList.toggle('live', isOn);
+    statusText.textContent = isOn ? 'Đang quét…' : 'Camera đang tắt';
+    toggleBtn.textContent = isOn ? 'Dừng quét' : 'Bắt đầu quét';
+    toggleBtn.classList.toggle('stop', isOn);
+  }
+
+  function startScanning() {
+    if (typeof Html5Qrcode === 'undefined') {
+      alert('Không tải được thư viện quét mã. Kiểm tra kết nối mạng rồi thử lại.');
+      return;
+    }
+    toggleBtn.disabled = true;
+    statusText.textContent = 'Đang mở camera…';
+    if (!html5QrCode) html5QrCode = new Html5Qrcode('reader');
+
+    var config = { fps: 12, qrbox: function (vw, vh) {
+      var size = Math.floor(Math.min(vw, vh) * 0.72);
+      return { width: size, height: size };
+    }, aspectRatio: 4 / 3 };
+
+    html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess, onScanFailure)
+      .then(function () {
+        setScanningUI(true);
+      })
+      .catch(function (err) {
+        statusText.textContent = 'Camera đang tắt';
+        alert('Không mở được camera. Hãy cấp quyền camera cho trang này trong trình duyệt, rồi thử lại.\n\nChi tiết: ' + err);
+      })
+      .finally(function () { toggleBtn.disabled = false; });
+  }
+
+  function stopScanning() {
+    if (!html5QrCode) { setScanningUI(false); return; }
+    toggleBtn.disabled = true;
+    html5QrCode.stop()
+      .then(function () { return html5QrCode.clear(); })
+      .catch(function () { /* ignore */ })
+      .finally(function () {
+        setScanningUI(false);
+        toggleBtn.disabled = false;
+      });
+  }
+
+  toggleBtn.addEventListener('click', function () {
+    if (scanning) stopScanning(); else startScanning();
+  });
+
+  /** ---------- Manual entry ---------- **/
+  function manualAdd() {
+    var val = manualInput.value.trim();
+    if (!val) return;
+    registerCode(val, 'Nhập tay');
+    manualInput.value = '';
+    manualInput.focus();
+  }
+  manualAddBtn.addEventListener('click', manualAdd);
+  manualInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') manualAdd(); });
+
+  clearAllBtn.addEventListener('click', clearAll);
+
+  /** ---------- Export ---------- **/
+  function buildRows() {
+    var rows = [['Mã', 'Định dạng', 'Số lần quét', 'Lần đầu quét', 'Lần quét cuối']];
+    order.slice().reverse().forEach(function (code) {
+      var e = entries.get(code);
+      if (!e) return;
+      rows.push([
+        e.code,
+        e.format,
+        e.count,
+        e.firstTime.toLocaleString('vi-VN'),
+        e.lastTime.toLocaleString('vi-VN')
+      ]);
+    });
+    return rows;
+  }
+
+  function dateStamp() {
+    var d = new Date();
+    function p(n) { return String(n).padStart(2, '0'); }
+    return d.getFullYear() + '' + p(d.getMonth() + 1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes());
+  }
+
+  function downloadBlob(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+
+  exportCsvBtn.addEventListener('click', function () {
+    if (entries.size === 0) { alert('Chưa có mã nào để xuất.'); return; }
+    var rows = buildRows();
+    var csv = rows.map(function (r) {
+      return r.map(function (v) {
+        var s = String(v).replace(/"/g, '""');
+        return '"' + s + '"';
+      }).join(',');
+    }).join('\r\n');
+    var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    downloadBlob(blob, 'quet-ma_' + dateStamp() + '.csv');
+  });
+
+  exportXlsxBtn.addEventListener('click', function () {
+    if (entries.size === 0) { alert('Chưa có mã nào để xuất.'); return; }
+    if (typeof XLSX === 'undefined') { alert('Không tải được thư viện xuất Excel. Kiểm tra kết nối mạng rồi thử lại.'); return; }
+    var rows = buildRows();
+    var ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{ wch: 26 }, { wch: 14 }, { wch: 12 }, { wch: 20 }, { wch: 20 }];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Ket qua quet');
+    XLSX.writeFile(wb, 'quet-ma_' + dateStamp() + '.xlsx');
+  });
+
+  /** ---------- PWA service worker ---------- **/
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () { /* offline install optional, ignore failure */ });
+    });
+  }
+
+  renderList();
+})();
+</script>
+</body>
+</html>
