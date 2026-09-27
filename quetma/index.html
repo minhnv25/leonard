@@ -304,6 +304,28 @@
     flex-direction: column;
     gap: 2px;
   }
+  .filename-row {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 10px;
+  }
+  .filename-row span {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .filename-row input[type="text"] {
+    border: 1px solid var(--border);
+    background: var(--surface-sunken);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 9px 11px;
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+  }
+  .filename-row input[type="text"]:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
   .export-fields label {
     display: flex;
     align-items: center;
@@ -469,12 +491,18 @@
 
   <details class="help" id="exportOptions">
     <summary>Tùy chọn xuất file</summary>
-    <div class="body export-fields">
-      <label class="locked"><input type="checkbox" checked disabled> Mã (luôn có)</label>
-      <label><input type="checkbox" data-field="format" checked> Định dạng mã</label>
-      <label><input type="checkbox" data-field="count" checked> Số lần quét</label>
-      <label><input type="checkbox" data-field="firstTime" checked> Lần đầu quét</label>
-      <label><input type="checkbox" data-field="lastTime" checked> Lần quét cuối</label>
+    <div class="body">
+      <label class="filename-row">
+        <span>Tên file xuất</span>
+        <input type="text" id="filenameInput" autocomplete="off" spellcheck="false">
+      </label>
+      <div class="export-fields">
+        <label class="locked"><input type="checkbox" checked disabled> Mã (luôn có)</label>
+        <label><input type="checkbox" data-field="format" checked> Định dạng mã</label>
+        <label><input type="checkbox" data-field="count" checked> Số lần quét</label>
+        <label><input type="checkbox" data-field="firstTime" checked> Lần đầu quét</label>
+        <label><input type="checkbox" data-field="lastTime" checked> Lần quét cuối</label>
+      </div>
     </div>
   </details>
 
@@ -525,6 +553,7 @@
   var clearAllBtn = document.getElementById('clearAllBtn');
   var exportCsvBtn = document.getElementById('exportCsvBtn');
   var exportXlsxBtn = document.getElementById('exportXlsxBtn');
+  var filenameInput = document.getElementById('filenameInput');
   var scannerExtra = document.getElementById('scannerExtra');
   var torchBtn = document.getElementById('torchBtn');
   var zoomRow = document.getElementById('zoomRow');
@@ -882,6 +911,25 @@
     return d.getFullYear() + '' + p(d.getMonth() + 1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes());
   }
 
+  function defaultFilename() {
+    return 'quet-ma_' + dateStamp();
+  }
+
+  function sanitizeFilename(name) {
+    return name
+      .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '')
+      .trim()
+      .slice(0, 120);
+  }
+
+  function getExportFilename(ext) {
+    var raw = sanitizeFilename(filenameInput.value || '');
+    var base = raw || defaultFilename();
+    return base + '.' + ext;
+  }
+
+  if (!filenameInput.value) filenameInput.value = defaultFilename();
+
   function downloadBlob(blob, filename) {
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
@@ -903,7 +951,7 @@
       }).join(',');
     }).join('\r\n');
     var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    downloadBlob(blob, 'quet-ma_' + dateStamp() + '.csv');
+    downloadBlob(blob, getExportFilename('csv'));
   });
 
   exportXlsxBtn.addEventListener('click', function () {
@@ -915,7 +963,7 @@
     ws['!cols'] = [{ wch: 26 }].concat(fields.map(function (f) { return { wch: f.wch }; }));
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Ket qua quet');
-    XLSX.writeFile(wb, 'quet-ma_' + dateStamp() + '.xlsx');
+    XLSX.writeFile(wb, getExportFilename('xlsx'));
   });
 
   /** ---------- PWA service worker ---------- **/
