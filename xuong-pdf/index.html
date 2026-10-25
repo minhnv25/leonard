@@ -1894,11 +1894,11 @@ async function histRemoveDraft(id) {
   if (d) for (const p of d.pages) await histDel('blobs', p.bkey);
   await histDel('drafts', id);
 }
-async function histFinish(draftId, res, pages) {      // đã lưu xong PDF: ghi vào "đã hoàn thành" và bỏ bản dở
+async function histFinish(draftId, res, pages, toolId) {      // đã lưu xong PDF: ghi vào "đã hoàn thành" và bỏ bản dở
   try {
     const f = res[0];
     if (f) {
-      await histPut('done', { id: newId('c'), name: f.name, created: Date.now(), pages, size: f.blob.size, thumb: f.thumb || null, pdf: f.blob });
+      await histPut('done', { id: newId('c'), tool: toolId || 'scan', name: f.name, created: Date.now(), pages, size: f.blob.size, thumb: f.thumb || null, pdf: f.blob });
       const all = (await histAll('done')).sort((a, b) => b.created - a.created);
       for (const x of all.slice(DONE_LIMIT)) await histDel('done', x.id);
     }
@@ -1911,12 +1911,14 @@ async function histFinish(draftId, res, pages) {      // đã lưu xong PDF: ghi
 async function refreshHistBar() {
   const row = $('#histRow');
   if (!row) return;
-  if (!tool || tool.id !== 'scan') { row.hidden = true; return; }
+  if (!tool || !['scan', 'ocr'].includes(tool.id)) { row.hidden = true; return; }
   if (!(await histDb())) { row.hidden = true; return; }
-  const d = await histCount('drafts'), c = await histCount('done');
+  const mine = r => (r.tool || 'scan') === tool.id;
+  const d = (await histAll('drafts')).filter(mine).length, c = (await histAll('done')).filter(mine).length;
+  $('#histBtn').textContent = tool.id === 'ocr' ? 'Lịch sử OCR' : 'Lịch sử scan';
   row.hidden = false;
   const info = $('#histInfo');
-  info.textContent = d ? `${d} bản chưa hoàn thành` : c ? `${c} bản đã hoàn thành` : 'Chưa có bản scan nào';
+  info.textContent = d ? `${d} bản chưa hoàn thành` : c ? `${c} bản đã hoàn thành` : (tool.id === 'ocr' ? 'Chưa có bản OCR nào' : 'Chưa có bản scan nào');
   info.classList.toggle('warn', d > 0);
 }
 async function resumeDraft(id) {
@@ -1930,7 +1932,7 @@ async function resumeDraft(id) {
     wrapped.push({ file: new File([rec.blob], pg.name, { type: pg.type || rec.blob.type }), name: pg.name, size: pg.size || rec.blob.size, meta: '', range: '', bkey: pg.bkey, hstored: true, scan: { rot: pg.rot || 0, q: pg.q || null } });
   }
   if (!wrapped.length) { toast('Ảnh của bản scan này không còn trên máy'); await histRemoveDraft(id); refreshHistBar(); return; }
-  selectTool('scan');
+  selectTool(d.tool || 'scan');
   items = wrapped; renderFiles();
   for (const it of wrapped) loadMeta(it);
   scanResume = d;
@@ -1944,7 +1946,7 @@ function openHistory(tab) {
   const body = el('div', { class: 'hist-body' });
   const bd = el('div', { class: 'hist-bd', onclick: e => { if (e.target === bd) close(); } },
     el('div', { class: 'hist-box', role: 'dialog', 'aria-label': 'Lịch sử scan' },
-      el('div', { class: 'hist-head' }, el('h2', { text: 'Lịch sử scan' }), el('button', { type: 'button', class: 'ibtn', 'aria-label': 'Đóng', onclick: () => close() }, '×')),
+      el('div', { class: 'hist-head' }, el('h2', { text: tool.id === 'ocr' ? 'Lịch sử OCR' : 'Lịch sử scan' }), el('button', { type: 'button', class: 'ibtn', 'aria-label': 'Đóng', onclick: () => close() }, '×')),
       tabs, body,
       el('p', { class: 'hist-note', text: 'Lịch sử lưu ngay trên máy và trình duyệt này, không gửi đi đâu. Xoá dữ liệu trình duyệt thì lịch sử mất. Chỉ giữ 25 bản đã hoàn thành gần nhất.' })));
   const onKey = e => { if (e.key === 'Escape' && !document.querySelector('.pv-backdrop')) { e.preventDefault(); close(); } };
@@ -1966,8 +1968,9 @@ function openHistory(tab) {
   };
   async function render() {
     urls.splice(0).forEach(u => URL.revokeObjectURL(u));
-    const drafts = (await histAll('drafts')).sort((a, b) => b.updated - a.updated);
-    const done = (await histAll('done')).sort((a, b) => b.created - a.created);
+    const mine = r => (r.tool || 'scan') === tool.id;
+    const drafts = (await histAll('drafts')).filter(mine).sort((a, b) => b.updated - a.updated);
+    const done = (await histAll('done')).filter(mine).sort((a, b) => b.created - a.created);
     if (!state.tab) state.tab = drafts.length || !done.length ? 'draft' : 'done';
     const tb = (k, label) => el('button', { type: 'button', role: 'tab', class: 'hist-tab', 'aria-selected': state.tab === k ? 'true' : 'false', onclick: () => { state.tab = k; render(); } }, label);
     tabs.replaceChildren(tb('draft', `Chưa hoàn thành (${drafts.length})`), tb('done', `Đã hoàn thành (${done.length})`));
@@ -2005,6 +2008,8 @@ function openHistory(tab) {
 }
 
 /* ---------- Scan: cắt ảnh -> xem trước & chọn màu -> lưu ---------- */
+const isImageItem = it => /^image\//.test(it.file.type) || ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif'].includes(extOf(it.name));
+const studioMode = () => !!tool.studio && items.length > 0 && items.every(isImageItem);   // OCR + PDF: chạy thẳng, không qua màn hình scan
 const SVG_ROT_L = '<path d="M2.5 2v6h6"/><path d="M2.7 15.6a10 10 0 1 0 .6-8.4L2.5 8"/>';
 const SVG_ROT_R = '<path d="M21.5 2v6h-6"/><path d="M21.3 15.6a10 10 0 1 1-.6-8.4L21.5 8"/>';
 const SVG_FULL = '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>';
@@ -2020,6 +2025,7 @@ const SVG_COMPARE = '<path d="M12 3v18"/><rect x="3" y="5" width="7" height="14"
 const SVG_OCR = '<path d="M4 7V5h16v2"/><path d="M12 5v14"/><path d="M9 19h6"/>';
 const SVG_PAGE = '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>';
 
+const SVG_RETAKE = '<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>';
 const SVG_PLUS = '<path d="M12 5v14"/><path d="M5 12h14"/>';
 const SVG_TRASH = '<path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12"/><path d="M9 7V4h6v3"/>';
 const SCAN_FILTERS = [['orig', 'Màu gốc', 'Original'], ['lighten', 'Làm sáng', 'Lighten'], ['enhance', 'Rõ nét', 'Enhance'], ['bw', 'Trắng đen', 'B&W'],
@@ -2106,10 +2112,11 @@ async function openScanStudio(newItems) {
     phase: 'crop', idx: 0, alive: true, busy: false, tok: 0, compare: false,
     pages: items.map(mkPage),
     queue: [], qpos: 0,                      // các trang đang đi qua bước cắt
+    retake: null,                            // chỉ số trang đang được chụp lại / chọn lại
     mode: (resume && resume.mode) || 'enhance',                         // luôn bắt đầu bằng "Rõ nét": làm sáng, rõ chữ, bỏ đổ bóng
     size: (resume ? resume.size : prefs.size) === 'fit' ? 'fit' : 'a4',
     stamp: resume ? resume.stamp !== false : true,                             // chữ ký luôn bật mặc định
-    ocr: resume ? !!resume.ocr : !!prefs.ocr,
+    ocr: tool.id === 'ocr' ? true : resume ? !!resume.ocr : !!prefs.ocr,
     name: '',
   };
   const dpr = Math.min(2, window.devicePixelRatio || 1), PAD = 16;
@@ -2120,7 +2127,8 @@ async function openScanStudio(newItems) {
   const busyEl = el('div', { class: 'ss-busy' });
   const loupe = el('div', { class: 'ss-loupe' }, el('canvas'));
   document.body.append(root); document.body.classList.add('ss-open');
-  const defName = () => st.pages.length === 1 ? safeName(baseName(st.pages[0].it.name)) + '_scan' : `Ban_scan_${st.pages.length}_trang`;
+  const toolId = tool.id;
+  const defName = () => toolId === 'ocr' ? (st.pages.length === 1 ? safeName(baseName(st.pages[0].it.name)) + '_co_chu' : `Ban_co_chu_${st.pages.length}_trang`) : (st.pages.length === 1 ? safeName(baseName(st.pages[0].it.name)) + '_scan' : `Ban_scan_${st.pages.length}_trang`);
 
   const busy = msg => { st.busy = !!msg; busyEl.textContent = msg || ''; busyEl.style.display = msg ? 'flex' : 'none'; root.classList.toggle('is-busy', !!msg); };
   const btn = (cls, icon, label, fn, attrs = {}) => el('button', { type: 'button', class: cls, onclick: fn, ...attrs }, svgIcon(icon), label ? el('span', { text: label }) : null);
@@ -2138,7 +2146,7 @@ async function openScanStudio(newItems) {
       const first = st.pages[0];
       if (draft.thumbKey !== first.it.bkey) { draft.thumb = await histThumb(first.it.file); draft.thumbKey = first.it.bkey; }
       if (dead) return;
-      await histPut('drafts', { id: draft.id, created: draft.created, updated: Date.now(), mode: st.mode, size: st.size, stamp: st.stamp, ocr: st.ocr, thumb: draft.thumb, thumbKey: draft.thumbKey,
+      await histPut('drafts', { id: draft.id, tool: toolId, created: draft.created, updated: Date.now(), mode: st.mode, size: st.size, stamp: st.stamp, ocr: st.ocr, thumb: draft.thumb, thumbKey: draft.thumbKey,
         pages: st.pages.map(p => ({ bkey: p.it.bkey, name: p.it.name, type: p.it.file.type || '', size: p.it.size || 0, rot: p.rot, q: p.q })) });
     } catch (e) { /* lịch sử chỉ là phần phụ */ }
   }
@@ -2277,6 +2285,12 @@ async function openScanStudio(newItems) {
     else toast('Chưa tự tìm chắc được 4 góc. Hãy kéo các điểm bằng tay.');
   }
   function wholeImage() { if (st.busy || !base) return; q = [[0, 0], [bw, 0], [bw, bh], [0, bh]]; syncQ(); st.pages[st.idx].ver++; draw(); }
+  function retakeCrop() {                     // mở lại đúng nguồn đã chọn; ảnh mới thay cho ảnh đang cắt
+    if (st.busy) return;
+    const id = { cam: '#camInput', lib: '#libInput', file: '#fileInput' }[scanSource];
+    st.retake = st.idx;
+    if (id) $(id).click(); else if (IS_ANDROID) askImageSource(); else $('#fileInput').click();
+  }
   async function moveCrop(d) {
     if (st.busy) return;
     const j = st.qpos + d; if (j < 0 || j >= st.queue.length) return;
@@ -2298,6 +2312,7 @@ async function openScanStudio(newItems) {
       btn('ss-act', SVG_ROT_R, 'Xoay phải', () => rotateCrop(1)),
       btn('ss-act', SVG_FULL, 'Cả ảnh', wholeImage),
       btn('ss-act', SVG_AUTO, 'Tự tìm', reDetect),
+      btn('ss-act', SVG_RETAKE, scanSource === 'cam' ? 'Chụp lại' : 'Chọn lại', retakeCrop),
       btn('ss-act primary', SVG_NEXT, 'Tiếp', cropNext)));
   }
 
@@ -2497,6 +2512,7 @@ async function openScanStudio(newItems) {
   }
   function addMore() {
     if (st.busy) return;
+    st.retake = null;
     const id = { cam: '#camInput', lib: '#libInput', file: '#fileInput' }[scanSource];   // dùng đúng nguồn đã chọn lúc đầu
     if (id) $(id).click(); else if (IS_ANDROID) askImageSource(); else $('#fileInput').click();
   }
@@ -2511,7 +2527,7 @@ async function openScanStudio(newItems) {
       setPref('ocr', !st.ocr); ocrBtn.classList.toggle('on', st.ocr); ocrBtn.lastChild.textContent = st.ocr ? 'OCR: Bật' : 'OCR: Tắt';
     }, { title: 'Thêm lớp chữ ẩn để tìm kiếm và sao chép chữ trong PDF (mất thêm vài giây mỗi trang)' });
     bottom.replaceChildren(
-      el('div', { class: 'ss-bar' }, btn('ss-act', SVG_PLUS, 'Thêm ảnh', addMore), sizeBtn, ocrBtn),
+      el('div', { class: 'ss-bar' }, btn('ss-act', SVG_PLUS, 'Thêm ảnh', addMore), sizeBtn, toolId === 'ocr' ? null : ocrBtn),
       el('button', { type: 'button', class: 'ss-save', onclick: finish }, svgIcon(SVG_SAVE), el('span', { text: `Lưu thành PDF (${st.pages.length} trang)` })));
   }
   let dlgClose = null;
@@ -2549,6 +2565,20 @@ async function openScanStudio(newItems) {
     addPages(newItems) {
       const fresh = newItems.filter(it => !st.pages.some(p => p.it === it));
       if (!fresh.length) return;
+      if (st.retake != null && st.phase === 'crop' && st.pages[st.retake]) {          // chụp lại: thay đúng trang đang cắt
+        const at = st.retake; st.retake = null;
+        const old = st.pages[at], nit = fresh[0];
+        fresh.forEach(it => { const k = items.indexOf(it); if (k >= 0) items.splice(k, 1); });   // addFiles đã thêm vào cuối danh sách
+        const k = items.indexOf(old.it);
+        if (k >= 0) items[k] = nit; else items.push(nit);
+        if (old.thumb) freeCanvas(old.thumb);
+        histDel('blobs', old.it.bkey);
+        st.pages[at] = mkPage(nit); saveDraft(); renderFiles();
+        st.tok++; pageCv = null; freeCur(); freeBase();
+        stage.className = 'ss-stage'; stage.replaceChildren(busyEl, loupe);
+        loadCrop(at);
+        return;
+      }
       const startIdx = st.pages.length;
       fresh.forEach(it => st.pages.push(mkPage(it))); saveDraft();
       st.tok++; pageCv = null; freeCur(); freeBase();
@@ -2744,6 +2774,78 @@ const OCR_OPT = { id: 'ocr', label: 'Nhận dạng chữ (OCR)', type: 'select',
 const PAGES_OPT = { id: 'pages', label: 'Trang cần lấy', type: 'text', placeholder: 'Để trống = tất cả, ví dụ 1-3, 5' };
 
 const TOOLS = [
+  {
+    id: 'scan', short: 'Scan', group: 'Scan & nhận dạng chữ', name: 'Scan tài liệu', conv: 'Ảnh chụp → PDF scan',
+    desc: 'Chụp ảnh, chọn từ thư viện hoặc chọn tệp: app tự mở màn hình cắt và tìm 4 góc tờ giấy, rồi tự quét cho sáng, rõ chữ, bỏ đổ bóng. Bạn chọn kiểu màu, xem kết quả, thêm ảnh và lưu thành một file PDF.',
+    note: ['Đặt giấy trên nền tối hơn giấy để tự tìm góc chính xác. Ở bước cắt có thể kéo 4 góc và 4 điểm giữa cạnh, xoay ảnh hoặc bấm "Cả ảnh" để không cắt.', 'Bước quét có 7 kiểu màu: Màu gốc, Làm sáng, Rõ nét, Trắng đen, Bỏ bóng, Tiết kiệm mực, Xám; có nút xoay trái và bật/tắt chữ ký "Scan by Minh Leonard" (mặc định bật, góc dưới bên phải).'],
+    exts: ['jpg', 'jpeg', 'png', 'webp', 'bmp'], multiple: true, studio: true, action: 'Mở màn hình scan',
+    opts: [],
+    sample: async () => [await samplePhotoFile()],
+    async run(items, o, ui) {
+      await need('pdflib');
+      const pdf = await window.PDFLib.PDFDocument.create();
+      let font = null, cropped = 0, thumb = null, logoImg = null, logo = null;
+      if (o.ocr) {
+        await need('fontkit');
+        pdf.registerFontkit(window.fontkit);
+        font = await pdf.embedFont(await fetchAsset(ASSET.font), { subset: true });
+        await getOcr(ui);
+      }
+      if (o.stamp) { logo = await signatureLogo(); logoImg = await pdf.embedPng(logo.bytes); }
+      for (let i = 0; i < items.length; i++) {
+        ui.check();
+        ui.span(i / items.length, (i + 1) / items.length);
+        const label = `Trang ${i + 1}/${items.length}`;
+        ui.sub(`${label} · mở ảnh`, 0.05);
+        await sleep(0);
+        let c = await imageToCanvas(items[i].file);
+        const sc = items[i].scan || null;
+        if (sc && sc.rot) { const r = rotateCanvas(c, sc.rot); if (r !== c) { freeCanvas(c); c = r; } }
+        let q = null;
+        if (sc && sc.q) { if (!isFullQuad(sc.q)) q = sc.q.map(([u, v]) => [u * c.width, v * c.height]); }
+        else if (!sc) q = findPageCorners(c);
+        if (q) { ui.sub(`${label} · cắt và nắn thẳng trang`, 0.15); await sleep(0); const w2 = warpToRect(c, q); freeCanvas(c); c = w2; cropped++; }
+        if (o.mode !== 'orig') { ui.sub(`${label} · làm sạch nền`, 0.3); await sleep(0); enhanceScan(c, o.mode); }
+        const asPng = o.mode === 'bw';
+        const blob = await canvasBlob(c, asPng ? 'image/png' : 'image/jpeg', 0.88);
+        if (!thumb) {
+          const t = document.createElement('canvas'); const k = 160 / c.width; t.width = 160; t.height = Math.round(c.height * k);
+          t.getContext('2d').drawImage(c, 0, 0, t.width, t.height);
+          thumb = await canvasBlob(t, 'image/jpeg', 0.8); freeCanvas(t);
+        }
+        const bytes = await blobBytes(blob);
+        const img = asPng ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
+        const land = c.width > c.height;
+        let pw, ph;
+        if (o.size === 'fit') { pw = land ? 841.89 : 595.28; ph = pw * c.height / c.width; }
+        else [pw, ph] = land ? [841.89, 595.28] : [595.28, 841.89];
+        const k = Math.min(pw / c.width, ph / c.height);
+        const dw = c.width * k, dh = c.height * k, ix = (pw - dw) / 2, iy = (ph - dh) / 2;
+        const page = pdf.addPage([pw, ph]);
+        page.drawImage(img, { x: ix, y: iy, width: dw, height: dh });
+        if (logoImg) {
+          const b = stampBox(pw, ph, logo);
+          page.drawImage(logoImg, { x: b.x, y: b.y, width: b.lw, height: b.lh, opacity: 0.95 });
+        }
+        if (o.ocr) {
+          const data = await ocrCanvas(c, p => ui.sub(`${label} · nhận dạng chữ`, 0.4 + 0.6 * p));
+          for (const b of data.blocks || []) for (const p of b.paragraphs || []) for (const l of p.lines || []) for (const w of l.words || []) {
+            const t = cleanOcrWord(w.text);
+            if (!t) continue;
+            const x = ix + w.bbox.x0 * k, width = (w.bbox.x1 - w.bbox.x0) * k, height = (w.bbox.y1 - w.bbox.y0) * k;
+            const y = iy + (c.height - w.bbox.y1) * k;
+            const size = clamp(width / (font.widthOfTextAtSize(t, 1) || 1), height * 0.4, height * 2.2);
+            try { page.drawText(t, { x, y: y + height * 0.18, size, font, opacity: 0 }); } catch (e) { /* skip */ }
+          }
+        }
+        freeCanvas(c);
+      }
+      ui.span(0, 1);
+      ui.step('Đang lưu PDF', 0.97);
+      const name = safeName(o.name || (items.length === 1 ? baseName(items[0].name) + '_scan' : `Ban_scan_${items.length}_trang`)) + '.pdf';
+      return { files: [{ name, blob: new Blob([await pdf.save()], { type: 'application/pdf' }), thumb }], info: `${items.length} trang, đã cắt theo 4 góc giấy ${cropped}/${items.length} trang${o.ocr ? ', đã thêm lớp chữ' : ''}.` };
+    },
+  },
   {
     id: 'merge', short: 'Ghép PDF', group: 'Ghép & tách', name: 'Ghép PDF', conv: 'PDF + PDF → PDF',
     desc: 'Gộp nhiều file PDF thành một. Sắp xếp thứ tự bằng các nút mũi tên, mỗi file có thể chỉ lấy một số trang.',
@@ -3265,82 +3367,10 @@ const TOOLS = [
     exts: [],
   },
   {
-    id: 'scan', short: 'Scan', group: 'Scan & nhận dạng chữ', name: 'Scan tài liệu', conv: 'Ảnh chụp → PDF scan',
-    desc: 'Chụp ảnh, chọn từ thư viện hoặc chọn tệp: app tự mở màn hình cắt và tìm 4 góc tờ giấy, rồi tự quét cho sáng, rõ chữ, bỏ đổ bóng. Bạn chọn kiểu màu, xem kết quả, thêm ảnh và lưu thành một file PDF.',
-    note: ['Đặt giấy trên nền tối hơn giấy để tự tìm góc chính xác. Ở bước cắt có thể kéo 4 góc và 4 điểm giữa cạnh, xoay ảnh hoặc bấm "Cả ảnh" để không cắt.', 'Bước quét có 7 kiểu màu: Màu gốc, Làm sáng, Rõ nét, Trắng đen, Bỏ bóng, Tiết kiệm mực, Xám; có nút xoay trái và bật/tắt chữ ký "Scan by Minh Leonard" (mặc định bật, góc dưới bên phải).'],
-    exts: ['jpg', 'jpeg', 'png', 'webp', 'bmp'], multiple: true, studio: true, action: 'Mở màn hình scan',
-    opts: [],
-    sample: async () => [await samplePhotoFile()],
-    async run(items, o, ui) {
-      await need('pdflib');
-      const pdf = await window.PDFLib.PDFDocument.create();
-      let font = null, cropped = 0, thumb = null, logoImg = null, logo = null;
-      if (o.ocr) {
-        await need('fontkit');
-        pdf.registerFontkit(window.fontkit);
-        font = await pdf.embedFont(await fetchAsset(ASSET.font), { subset: true });
-        await getOcr(ui);
-      }
-      if (o.stamp) { logo = await signatureLogo(); logoImg = await pdf.embedPng(logo.bytes); }
-      for (let i = 0; i < items.length; i++) {
-        ui.check();
-        ui.span(i / items.length, (i + 1) / items.length);
-        const label = `Trang ${i + 1}/${items.length}`;
-        ui.sub(`${label} · mở ảnh`, 0.05);
-        await sleep(0);
-        let c = await imageToCanvas(items[i].file);
-        const sc = items[i].scan || null;
-        if (sc && sc.rot) { const r = rotateCanvas(c, sc.rot); if (r !== c) { freeCanvas(c); c = r; } }
-        let q = null;
-        if (sc && sc.q) { if (!isFullQuad(sc.q)) q = sc.q.map(([u, v]) => [u * c.width, v * c.height]); }
-        else if (!sc) q = findPageCorners(c);
-        if (q) { ui.sub(`${label} · cắt và nắn thẳng trang`, 0.15); await sleep(0); const w2 = warpToRect(c, q); freeCanvas(c); c = w2; cropped++; }
-        if (o.mode !== 'orig') { ui.sub(`${label} · làm sạch nền`, 0.3); await sleep(0); enhanceScan(c, o.mode); }
-        const asPng = o.mode === 'bw';
-        const blob = await canvasBlob(c, asPng ? 'image/png' : 'image/jpeg', 0.88);
-        if (!thumb) {
-          const t = document.createElement('canvas'); const k = 160 / c.width; t.width = 160; t.height = Math.round(c.height * k);
-          t.getContext('2d').drawImage(c, 0, 0, t.width, t.height);
-          thumb = await canvasBlob(t, 'image/jpeg', 0.8); freeCanvas(t);
-        }
-        const bytes = await blobBytes(blob);
-        const img = asPng ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
-        const land = c.width > c.height;
-        let pw, ph;
-        if (o.size === 'fit') { pw = land ? 841.89 : 595.28; ph = pw * c.height / c.width; }
-        else [pw, ph] = land ? [841.89, 595.28] : [595.28, 841.89];
-        const k = Math.min(pw / c.width, ph / c.height);
-        const dw = c.width * k, dh = c.height * k, ix = (pw - dw) / 2, iy = (ph - dh) / 2;
-        const page = pdf.addPage([pw, ph]);
-        page.drawImage(img, { x: ix, y: iy, width: dw, height: dh });
-        if (logoImg) {
-          const b = stampBox(pw, ph, logo);
-          page.drawImage(logoImg, { x: b.x, y: b.y, width: b.lw, height: b.lh, opacity: 0.95 });
-        }
-        if (o.ocr) {
-          const data = await ocrCanvas(c, p => ui.sub(`${label} · nhận dạng chữ`, 0.4 + 0.6 * p));
-          for (const b of data.blocks || []) for (const p of b.paragraphs || []) for (const l of p.lines || []) for (const w of l.words || []) {
-            const t = cleanOcrWord(w.text);
-            if (!t) continue;
-            const x = ix + w.bbox.x0 * k, width = (w.bbox.x1 - w.bbox.x0) * k, height = (w.bbox.y1 - w.bbox.y0) * k;
-            const y = iy + (c.height - w.bbox.y1) * k;
-            const size = clamp(width / (font.widthOfTextAtSize(t, 1) || 1), height * 0.4, height * 2.2);
-            try { page.drawText(t, { x, y: y + height * 0.18, size, font, opacity: 0 }); } catch (e) { /* skip */ }
-          }
-        }
-        freeCanvas(c);
-      }
-      ui.span(0, 1);
-      ui.step('Đang lưu PDF', 0.97);
-      const name = safeName(o.name || (items.length === 1 ? baseName(items[0].name) + '_scan' : `Ban_scan_${items.length}_trang`)) + '.pdf';
-      return { files: [{ name, blob: new Blob([await pdf.save()], { type: 'application/pdf' }), thumb }], info: `${items.length} trang, đã cắt theo 4 góc giấy ${cropped}/${items.length} trang${o.ocr ? ', đã thêm lớp chữ' : ''}.` };
-    },
-  },
-  {
-    id: 'ocr', short: 'OCR chữ', group: 'Scan & nhận dạng chữ', name: 'PDF scan có chữ', conv: 'OCR · PDF → PDF',
-    desc: 'Nhận dạng chữ tiếng Việt trên PDF scan, ảnh chụp rồi gắn lớp chữ ẩn vào file. Hình thức giữ nguyên, nhưng tìm kiếm (Ctrl+F) và bôi đen sao chép được.',
-    note: ['Mỗi trang mất khoảng 3–10 giây tuỳ máy. File trên 30 trang nên dùng bản máy tính.', 'Chữ viết tay, con dấu, chữ mờ thường nhận sai. Kết quả tốt nhất với bản scan thẳng, rõ nét.'],
-    exts: ['pdf'], multiple: false, action: 'Nhận dạng chữ',
+    id: 'ocr', short: 'OCR chữ', group: 'Scan & nhận dạng chữ', name: 'Nhận dạng chữ (OCR)', conv: 'Ảnh / PDF → PDF có chữ',
+    desc: 'Chụp ảnh, chọn từ thư viện hoặc chọn tệp ảnh: app cắt 4 góc, quét cho sáng rõ rồi nhận dạng chữ tiếng Việt, lưu thành PDF có lớp chữ ẩn (tìm kiếm Ctrl+F, bôi đen sao chép được). Chọn file PDF scan thì nhận dạng thẳng như trước.',
+    note: ['Ảnh: đi qua đủ các bước như Scan (cắt, chọn màu, thêm ảnh, đặt tên rồi lưu); lớp chữ luôn được thêm. Các tuỳ chọn bên dưới (mức kỹ, trang, bỏ qua trang có chữ) chỉ dùng khi chọn file PDF, mỗi lần 1 file.', 'Mỗi trang mất khoảng 3–10 giây tuỳ máy. File trên 30 trang nên dùng bản máy tính. Chữ viết tay, con dấu, chữ mờ thường nhận sai.'],
+    exts: ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'bmp'], multiple: true, studio: true, action: 'Nhận dạng chữ',
     opts: [
       { id: 'dpi', label: 'Mức kỹ', type: 'select', value: '200', choices: [['150', 'Nhanh'], ['200', 'Chuẩn (khuyên dùng)'], ['300', 'Kỹ, cho chữ nhỏ']] },
       PAGES_OPT,
@@ -3348,6 +3378,9 @@ const TOOLS = [
     ],
     sample: async () => [new File([await sampleScanBytes()], 'Bang_ke_scan_mau.pdf', { type: 'application/pdf' })],
     async run(items, o, ui) {
+      if (items.every(isImageItem)) return TOOLS.find(t => t.id === 'scan').run(items, { ...o, ocr: true }, ui);
+      if (items.some(isImageItem)) throw new UserError('Chọn ảnh hoặc PDF, không chọn lẫn hai loại trong một lần.');
+      if (items.length > 1) throw new UserError('Với PDF, chọn 1 file mỗi lần.');
       await need('pdflib', 'fontkit');
       const it = items[0];
       const buf = await it.file.arrayBuffer();
@@ -3534,7 +3567,7 @@ function addFiles(list) {
   showError(null);
   renderFiles();
   for (const it of wrapped) loadMeta(it);
-  if (tool.studio) openScanStudio(wrapped);
+  if (studioMode()) openScanStudio(wrapped);
 }
 async function loadMeta(it) {
   try {
@@ -3716,7 +3749,7 @@ async function saveZip() {
 async function run() {
   if (running || !items.length) return;
   let o;
-  if (tool.studio) { o = tool.studioOpts; tool.studioOpts = null; if (!o) return; }
+  if (studioMode()) { o = tool.studioOpts; tool.studioOpts = null; if (!o) return; }
   else try { o = readOptions(); } catch (e) { return; }
   running = true; cancelFlag = false;
   results = []; renderResults(); showError(null);
@@ -3736,7 +3769,7 @@ async function run() {
     const secs = Math.max(1, Math.round((performance.now() - t0) / 1000));
     renderResults(`${res.info || ''} Mất ${secs} giây.`.trim());
     if (o.autoSave) for (const f of results) await saveBlob(f.name, f.blob);   // Scan: xong là lưu luôn, không thêm bước
-    if (o.autoSave) await histFinish(o.draftId, results, items.length);
+    if (o.autoSave) await histFinish(o.draftId, results, items.length, tool.id);
     setTimeout(() => { $('#progress').hidden = true; }, 600);
     $('#results').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' });
   } catch (e) {
@@ -4039,7 +4072,7 @@ function init() {
   drop.addEventListener('click', e => {
     if (IS_ANDROID && tool && !tool.desktopOnly && (tool.exts || []).includes('jpg')) { e.preventDefault(); askImageSource(); }
   });
-  $('#runBtn').addEventListener('click', () => { if (tool.studio) openScanStudio(); else run(); });
+  $('#runBtn').addEventListener('click', () => { if (studioMode()) openScanStudio(); else run(); });
   $('#stopBtn').addEventListener('click', () => { cancelFlag = true; $('#pText').textContent = 'Đang dừng sau bước hiện tại'; });
   $('#zipBtn').addEventListener('click', saveZip);
   $('#histBtn').addEventListener('click', () => openHistory());
@@ -4054,7 +4087,7 @@ function init() {
     finally { btn.disabled = false; btn.textContent = label; }
   });
   const fromHash = (location.hash || '').replace('#', '');
-  selectTool(TOOLS.some(t => t.id === fromHash) ? fromHash : 'merge', true);
+  selectTool(TOOLS.some(t => t.id === fromHash) ? fromHash : 'scan', true);
   setupAppShell();
 }
 init();
