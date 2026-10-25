@@ -1,5 +1,5 @@
 /* Scan - PDF service worker, phiên bản 20261025-1330 */
-const VERSION = 'xuongpdf-20261025-2350';
+const VERSION = 'xuongpdf-20261026-0005';
 const CORE = ["./", "index.html", "manifest.json", "fonts.css", "pdf.min.js", "pdf.worker.min.js", "pdf-lib.min.js", "icon-192.png", "favicon-32.png", "apple-touch-icon.png", "be-vietnam-pro-latin-400-normal.woff2", "be-vietnam-pro-latin-500-normal.woff2", "be-vietnam-pro-latin-600-normal.woff2", "be-vietnam-pro-latin-700-normal.woff2", "be-vietnam-pro-latin-ext-400-normal.woff2", "be-vietnam-pro-latin-ext-500-normal.woff2", "be-vietnam-pro-latin-ext-600-normal.woff2", "be-vietnam-pro-latin-ext-700-normal.woff2", "be-vietnam-pro-vietnamese-400-normal.woff2", "be-vietnam-pro-vietnamese-500-normal.woff2", "be-vietnam-pro-vietnamese-600-normal.woff2", "be-vietnam-pro-vietnamese-700-normal.woff2", "ibm-plex-mono-latin-400-normal.woff2", "ibm-plex-mono-latin-500-normal.woff2"];
 
 self.addEventListener('install', e => {

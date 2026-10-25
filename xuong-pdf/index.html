@@ -2798,8 +2798,7 @@ const PAGES_OPT = { id: 'pages', label: 'Trang cần lấy', type: 'text', place
 const TOOLS = [
   {
     id: 'scan', short: 'Scan', group: 'Scan & nhận dạng chữ', name: 'Scan tài liệu', conv: 'Ảnh chụp → PDF scan',
-    desc: 'Chụp ảnh, chọn từ thư viện hoặc chọn tệp: app tự mở màn hình cắt và tìm 4 góc tờ giấy, rồi tự quét cho sáng, rõ chữ, bỏ đổ bóng. Bạn chọn kiểu màu, xem kết quả, thêm ảnh và lưu thành một file PDF.',
-    note: ['Đặt giấy trên nền tối hơn giấy để tự tìm góc chính xác. Ở bước cắt có thể kéo 4 góc và 4 điểm giữa cạnh, xoay ảnh hoặc bấm "Cả ảnh" để không cắt.', 'Bước quét có 7 kiểu màu: Màu gốc, Làm sáng, Rõ nét, Trắng đen, Bỏ bóng, Tiết kiệm mực, Xám; có nút xoay trái và bật/tắt chữ ký "Scan by Minh Leonard" (mặc định bật, góc dưới bên phải).'],
+    desc: 'Chụp ảnh hoặc chọn ảnh có sẵn thành file PDF rõ nét. App tự tìm 4 góc tờ giấy, làm sáng chữ, bỏ đổ bóng, cho chọn kiểu màu và ghép nhiều trang vào một file.',
     exts: ['jpg', 'jpeg', 'png', 'webp', 'bmp'], multiple: true, studio: true, action: 'Mở màn hình scan',
     opts: [],
     sample: async () => [await samplePhotoFile()],
@@ -3390,13 +3389,12 @@ const TOOLS = [
   },
   {
     id: 'ocr', short: 'OCR chữ', group: 'Scan & nhận dạng chữ', name: 'Nhận dạng chữ (OCR)', conv: 'Ảnh / PDF → PDF có chữ',
-    desc: 'Chụp ảnh, chọn từ thư viện hoặc chọn tệp ảnh: app cắt 4 góc, quét cho sáng rõ rồi nhận dạng chữ tiếng Việt, lưu thành PDF có lớp chữ ẩn (tìm kiếm Ctrl+F, bôi đen sao chép được). Chọn file PDF scan thì nhận dạng thẳng như trước.',
-    note: ['Ảnh: đi qua đủ các bước như Scan (cắt, chọn màu, thêm ảnh, đặt tên rồi lưu); lớp chữ luôn được thêm. Các tuỳ chọn bên dưới (mức kỹ, trang, bỏ qua trang có chữ) chỉ dùng khi chọn file PDF, mỗi lần 1 file.', 'Mỗi trang mất khoảng 3–10 giây tuỳ máy. File trên 30 trang nên dùng bản máy tính. Chữ viết tay, con dấu, chữ mờ thường nhận sai.'],
+    desc: 'Biến ảnh chụp hoặc PDF scan thành PDF có chữ, tìm kiếm (Ctrl+F) và sao chép được. Hình thức giữ nguyên; ảnh được cắt, làm rõ như Scan trước khi nhận dạng.',
     exts: ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'bmp'], multiple: true, studio: true, action: 'Nhận dạng chữ',
     opts: [
-      { id: 'dpi', label: 'Mức kỹ', type: 'select', value: '200', choices: [['150', 'Nhanh'], ['200', 'Chuẩn (khuyên dùng)'], ['300', 'Kỹ, cho chữ nhỏ']] },
-      PAGES_OPT,
-      { id: 'skip', label: 'Bỏ qua trang đã có chữ sẵn', type: 'check', value: true },
+      { id: 'dpi', label: 'Mức kỹ (chỉ khi chọn PDF)', type: 'select', value: '200', choices: [['150', 'Nhanh'], ['200', 'Chuẩn (khuyên dùng)'], ['300', 'Kỹ, cho chữ nhỏ']] },
+      { ...PAGES_OPT, label: 'Trang cần lấy (chỉ khi chọn PDF)' },
+      { id: 'skip', label: 'Bỏ qua trang đã có chữ sẵn (chỉ khi chọn PDF)', type: 'check', value: true },
     ],
     sample: async () => [new File([await sampleScanBytes()], 'Bang_ke_scan_mau.pdf', { type: 'application/pdf' })],
     async run(items, o, ui) {
