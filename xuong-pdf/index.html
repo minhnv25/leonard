@@ -1829,8 +1829,8 @@ const SVG_CAMERA = '<path d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1
 const SVG_IMAGE = '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.7"/><path d="M4 18l5-5 4 4 3-3 4 4"/>';
 const SVG_FOLDER = '<path d="M3 7a1 1 0 0 1 1-1h5l2 2.2h8a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7z"/>';
 
-/* ---------- Android: bấm ô thêm file thì hỏi chụp ảnh, thư viện hay chọn tệp (giống iPhone) ---------- */
-const IS_ANDROID = /Android/i.test(navigator.userAgent || '');
+/* ---------- Điện thoại (Android, iPhone, iPad): hỏi chụp ảnh, thư viện hay chọn tệp bằng bảng của app, rồi nhớ nguồn đã chọn cho "Thêm ảnh" ---------- */
+const IS_ANDROID = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '') || (/Macintosh/i.test(navigator.userAgent || '') && navigator.maxTouchPoints > 1);   // điện thoại/máy tính bảng (gồm iPhone, iPad)
 function askImageSource() {
   if (document.querySelector('.sheet-bd')) return;
   const close = () => bd.remove();
