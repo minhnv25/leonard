@@ -136,6 +136,13 @@ body.ss-open{overflow:hidden}
 .ss-tile:active{background:#2a2323}
 .ss-tc{display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:210/297;background:#fff;border-radius:2px;color:#999;overflow:hidden}
 .ss-tc canvas{display:block;width:100%;height:100%;object-fit:contain}
+.ss-mv{position:absolute;bottom:7px;width:34px;height:30px;border:0;border-radius:8px;background:#2a2323;color:#f3efef;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.ss-mv.l{left:8px}.ss-mv.r{right:8px}.ss-mv svg{width:18px;height:18px}.ss-mv:disabled{opacity:.28;cursor:default}.ss-mv:not(:disabled):active{background:#4a3a3a}
+.ss-tile .ss-tl{padding:0 38px;min-height:30px;display:flex;align-items:center}
+.ss-actions{display:flex;gap:10px;margin-top:8px}.ss-actions .ss-save{margin-top:0;flex:1.4;width:auto}
+.ss-preview{flex:1;height:50px;border:1px solid #5a4d4d;border-radius:12px;background:transparent;color:#f3efef;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+.ss-preview svg{width:21px;height:21px}.ss-preview:active{background:#2a2323}
+.pv-backdrop.over{z-index:70}
 .ss-del{position:absolute;top:12px;right:12px;width:32px;height:32px;border:0;border-radius:50%;background:rgba(19,16,16,.78);color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
 .ss-del svg{width:18px;height:18px}
 .ss-addtile{justify-content:center;border:2px dashed #5a4d4d;background:transparent;color:#ff8a82;min-height:150px;font-weight:600;font-size:14px}
@@ -595,7 +602,7 @@ function notifySaved(name, blob, how) {          // "Đã lưu" + nút Mở (xem
     el('button', { type: 'button', class: 'sv-x', 'aria-label': 'Đóng thông báo', onclick: close }, '×'));
   bar.title = sub;
   bar.classList.add('show');
-  clearTimeout(savedTimer); savedTimer = setTimeout(close, 9000);
+  clearTimeout(savedTimer); savedTimer = setTimeout(close, 20000);
 }
 async function saveBlob(name, blob) {
   const dl = await downloadsP;
@@ -603,6 +610,7 @@ async function saveBlob(name, blob) {
     try {
       await dl.save({ filename: name, data: blob });
       notifySaved(name, blob, 'host');
+      return true;
     } catch (e) {
       const c = e && e.code;
       if (c === 'declined') toast('Đã huỷ lưu file');
@@ -611,10 +619,11 @@ async function saveBlob(name, blob) {
       else if (c === 'rejected_extension' || c === 'extension_not_enabled') toast('Định dạng này không được phép lưu ở đây');
       else toast('Không lưu được file ở chế độ xem này');
     }
-    return;
+    return false;
   }
   anchorSave(name, blob);
   notifySaved(name, blob, 'dl');
+  return true;
 }
 
 let toastTimer;
@@ -2049,6 +2058,9 @@ const SVG_PAGE = '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2
 
 const SVG_RETAKE = '<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>';
 const SVG_PLUS = '<path d="M12 5v14"/><path d="M5 12h14"/>';
+const SVG_LEFT = '<path d="m14 6-6 6 6 6"/>';
+const SVG_RIGHT = '<path d="m10 6 6 6-6 6"/>';
+const SVG_EYE = '<path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
 const SVG_TRASH = '<path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12"/><path d="M9 7V4h6v3"/>';
 const SCAN_FILTERS = [['orig', 'Màu gốc', 'Original'], ['lighten', 'Làm sáng', 'Lighten'], ['enhance', 'Rõ nét', 'Enhance'], ['bw', 'Trắng đen', 'B&W'],
   ['noshadow', 'Bỏ bóng', 'No Shadow'], ['eco', 'Tiết kiệm mực', 'Eco'], ['gray', 'Xám', 'Grayscale']];
@@ -2150,7 +2162,9 @@ async function openScanStudio(newItems) {
   const loupe = el('div', { class: 'ss-loupe' }, el('canvas'));
   document.body.append(root); document.body.classList.add('ss-open');
   const toolId = tool.id;
-  const defName = () => toolId === 'ocr' ? (st.pages.length === 1 ? safeName(baseName(st.pages[0].it.name)) + '_co_chu' : `Ban_co_chu_${st.pages.length}_trang`) : (st.pages.length === 1 ? safeName(baseName(st.pages[0].it.name)) + '_scan' : `Ban_scan_${st.pages.length}_trang`);
+  const stampName = () => { const d = new Date(), z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}`; };
+  const niceBase = n => { const b = safeName(baseName(n)); return (/^\d{10,}/.test(b) || (b.length > 14 && b.replace(/\D/g, '').length / b.length > 0.8)) ? stampName() : b; };
+  const defName = () => toolId === 'ocr' ? (st.pages.length === 1 ? niceBase(st.pages[0].it.name) + '_co_chu' : `Ban_co_chu_${st.pages.length}_trang`) : (st.pages.length === 1 ? niceBase(st.pages[0].it.name) + '_scan' : `Ban_scan_${st.pages.length}_trang`);
 
   const busy = msg => { st.busy = !!msg; busyEl.textContent = msg || ''; busyEl.style.display = msg ? 'flex' : 'none'; root.classList.toggle('is-busy', !!msg); };
   const btn = (cls, icon, label, fn, attrs = {}) => el('button', { type: 'button', class: cls, onclick: fn, ...attrs }, svgIcon(icon), label ? el('span', { text: label }) : null);
@@ -2496,7 +2510,11 @@ async function openScanStudio(newItems) {
     const tiles = st.pages.map((p, i) => {
       const holder = el('span', { class: 'ss-tc' }, el('span', { class: 'ss-spin', text: '…' }));
       const del = btn('ss-del', SVG_TRASH, null, e => { e.stopPropagation(); removePage(i); }, { 'aria-label': `Xoá trang ${i + 1}` });
-      const t = el('button', { type: 'button', class: 'ss-tile', onclick: () => { st.idx = i; showEnhance(); }, 'aria-label': `Sửa trang ${i + 1}` }, holder, el('span', { class: 'ss-tl', text: `Trang ${i + 1}` }), del);
+      const last = st.pages.length - 1;
+      const mvL = btn('ss-mv l', SVG_LEFT, null, e => { e.stopPropagation(); movePage(i, -1); }, { 'aria-label': `Đưa trang ${i + 1} lên trước`, title: 'Đưa lên trước' });
+      const mvR = btn('ss-mv r', SVG_RIGHT, null, e => { e.stopPropagation(); movePage(i, 1); }, { 'aria-label': `Đưa trang ${i + 1} ra sau`, title: 'Đưa ra sau' });
+      mvL.disabled = i === 0; mvR.disabled = i === last;
+      const t = el('button', { type: 'button', class: 'ss-tile', onclick: () => { st.idx = i; showEnhance(); }, 'aria-label': `Sửa trang ${i + 1}` }, holder, el('span', { class: 'ss-tl', text: `Trang ${i + 1}` }), del, mvL, mvR);
       grid.append(t);
       return holder;
     });
@@ -2522,6 +2540,15 @@ async function openScanStudio(newItems) {
       const c = copyCanvas(p.thumb); tiles[i].replaceChildren(c);
       await sleep(0);
     }
+  }
+  function movePage(i, d) {                       // đổi chỗ trang: thứ tự trong PDF theo đúng thứ tự trên màn hình
+    const j = i + d;
+    if (st.busy || j < 0 || j >= st.pages.length) return;
+    [st.pages[i], st.pages[j]] = [st.pages[j], st.pages[i]];
+    const set = new Set(st.pages.map(p => p.it));
+    items = st.pages.map(p => p.it).concat(items.filter(x => !set.has(x)));
+    if (st.idx === i) st.idx = j; else if (st.idx === j) st.idx = i;
+    saveDraft(); renderFiles(); toResult();
   }
   function removePage(i) {
     if (st.pages.length <= 1) { toast('Cần ít nhất 1 trang. Bấm "Thêm ảnh" nếu muốn đổi ảnh khác.'); return; }
@@ -2550,7 +2577,9 @@ async function openScanStudio(newItems) {
     }, { title: 'Thêm lớp chữ ẩn để tìm kiếm và sao chép chữ trong PDF (mất thêm vài giây mỗi trang)' });
     bottom.replaceChildren(
       el('div', { class: 'ss-bar' }, btn('ss-act', SVG_PLUS, 'Thêm ảnh', addMore), sizeBtn, toolId === 'ocr' ? null : ocrBtn),
-      el('button', { type: 'button', class: 'ss-save', onclick: finish }, svgIcon(SVG_SAVE), el('span', { text: `Lưu thành PDF (${st.pages.length} trang)` })));
+      el('div', { class: 'ss-actions' },
+        el('button', { type: 'button', class: 'ss-preview', onclick: previewPdf }, svgIcon(SVG_EYE), el('span', { text: 'Xem trước' })),
+        el('button', { type: 'button', class: 'ss-save', onclick: finish }, svgIcon(SVG_SAVE), el('span', { text: `Lưu PDF (${st.pages.length} trang)` }))));
   }
   let dlgClose = null;
   function askName(def) {                              // hộp nhập tên file, bước cuối trước khi lưu
@@ -2570,6 +2599,22 @@ async function openScanStudio(newItems) {
       root.append(dlg); dlgClose = () => done(null);
       setTimeout(() => { input.focus(); input.select(); }, 30);
     });
+  }
+  async function previewPdf() {                    // dựng thử PDF đúng như sẽ lưu rồi mở xem, chưa lưu gì
+    if (st.busy || dlgClose) return;
+    st.pages.forEach(p => { p.it.scan = { rot: p.rot, q: p.q }; });
+    busy('Đang tạo bản xem trước…'); st.busy = true;
+    try {
+      const o = { mode: st.mode, size: st.size, stamp: st.stamp, ocr: false, name: '' };
+      const quiet = { step() {}, span() {}, sub() {}, check() {} };
+      const res = await TOOLS.find(t => t.id === 'scan').run(st.pages.map(p => p.it), o, quiet);
+      busy(null); st.busy = false;
+      if (!st.alive) return;
+      openPreview({ name: defName() + '.pdf', blob: res.files[0].blob, noSave: true, over: true });
+    } catch (e) {
+      busy(null); st.busy = false;
+      toast(e instanceof UserError ? e.message : 'Không tạo được bản xem trước');
+    }
   }
   async function finish() {
     if (st.busy || dlgClose) return;
@@ -2626,7 +2671,7 @@ async function openScanStudio(newItems) {
   }
   const onResize = () => { if (st.phase === 'crop') fit(); else if (st.phase === 'enhance' && pageCv) fitPage(pageCv); };
   const onKey = e => {
-    if (e.key !== 'Escape') return;
+    if (e.key !== 'Escape' || document.querySelector('.pv-backdrop')) return;
     e.preventDefault(); e.stopPropagation();
     if (dlgClose) { dlgClose(); return; }
     if (st.phase === 'result') { st.tok++; showEnhance(); } else if (st.phase === 'enhance') backToCrop(); else close();
@@ -3787,11 +3832,16 @@ async function run() {
     ui.step('Xong', 1);
     results = res.files;
     const secs = Math.max(1, Math.round((performance.now() - t0) / 1000));
-    renderResults(`${res.info || ''} Mất ${secs} giây.`.trim());
-    if (o.autoSave) for (const f of results) await saveBlob(f.name, f.blob);   // Scan: xong là lưu luôn, không thêm bước
-    if (o.autoSave) await histFinish(o.draftId, results, items.length, tool.id);
-    setTimeout(() => { $('#progress').hidden = true; }, 600);
-    $('#results').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' });
+    if (o.autoSave) {                                   // Scan / OCR ảnh: xong là lưu luôn, báo "Đã lưu xong", không có mục Kết quả
+      let saved = true;
+      for (const f of results) saved = (await saveBlob(f.name, f.blob)) && saved;
+      if (saved) { await histFinish(o.draftId, results, items.length, tool.id); results = []; renderResults(); $('#progress').hidden = true; }
+      else { renderResults(`${res.info || ''} Chưa lưu được, bấm Lưu để thử lại.`.trim()); setTimeout(() => { $('#progress').hidden = true; }, 600); $('#results').scrollIntoView({ block: 'nearest' }); }
+    } else {
+      renderResults(`${res.info || ''} Mất ${secs} giây.`.trim());
+      setTimeout(() => { $('#progress').hidden = true; }, 600);
+      $('#results').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' });
+    }
   } catch (e) {
     $('#progress').hidden = true;
     if (e instanceof Cancelled) toast('Đã dừng');
@@ -3927,8 +3977,8 @@ async function openPreview(r) {
   const status = el('div', { class: 'pv-status', text: 'Đang mở bản xem trước…' });
   body.append(status);
   const meta = el('div', { class: 'rmeta', text: fmtSize(r.blob.size) });
-  const actions = el('div', { class: 'pv-actions' }, el('button', { type: 'button', class: 'primary pv-save', onclick: () => saveBlob(r.name, r.blob) }, 'Lưu file'));
-  if (typeof canShareFile === 'function') {
+  const actions = el('div', { class: 'pv-actions' }, ...(r.noSave ? [] : [el('button', { type: 'button', class: 'primary pv-save', onclick: () => saveBlob(r.name, r.blob) }, 'Lưu file')]));
+  if (!r.noSave && typeof canShareFile === 'function') {
     const asFile = new File([r.blob], r.name, { type: r.blob.type || 'application/octet-stream' });
     if (canShareFile(asFile)) actions.append(el('button', { type: 'button', class: 'ghost', onclick: () => shareFile(asFile) }, 'Gửi'));
   }
@@ -3938,7 +3988,7 @@ async function openPreview(r) {
     el('div', { class: 'pv-title' }, el('span', { class: `ext ${ext}`, text: ext.toUpperCase() }), el('div', { class: 'pv-name' }, el('div', { class: 'rname', text: r.name }), meta)),
     actions);
   const dlg = el('div', { class: 'pv-dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Xem trước ${r.name}` }, head, body);
-  const wrap = el('div', { class: 'pv-backdrop' }, dlg);
+  const wrap = el('div', { class: 'pv-backdrop' + (r.over ? ' over' : '') }, dlg);
   wrap.addEventListener('click', e => { if (e.target === wrap) closePreview(); });
   const state = { wrap, body, meta, urls: [], doc: null, observer: null, alive: true, prevFocus: document.activeElement };
   state.onKey = e => {
