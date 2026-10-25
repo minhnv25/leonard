@@ -106,10 +106,11 @@ body.ss-open{overflow:hidden}
 .ss-act.primary{flex:1.25 1 0;background:#C62828;color:#fff;font-weight:600}
 .ss-act.primary:hover,.ss-act.primary:active{background:#b02222}
 .ss-act:disabled{opacity:.4}
-.ss-filters{display:flex;gap:10px;overflow-x:auto;padding:6px 2px 10px;scrollbar-width:none;justify-content:center}
+.ss-filters{display:flex;gap:8px;overflow-x:auto;padding:6px 2px 8px;scrollbar-width:none}
+.ss-filter:first-child{margin-left:auto}.ss-filter:last-child{margin-right:auto}
 .ss-filters::-webkit-scrollbar{display:none}
-.ss-filter{flex:0 0 auto;width:92px;border:2px solid transparent;border-radius:9px;background:#1f1919;color:#d8d0d0;font-size:13px;padding:0 0 7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;overflow:hidden}
-.ss-th{display:block;width:100%;height:92px;background:#fff;overflow:hidden}
+.ss-filter{flex:0 0 auto;width:78px;border:2px solid transparent;border-radius:9px;background:#1f1919;color:#d8d0d0;font-size:12.5px;line-height:1.15;padding:0 2px 6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;overflow:hidden}
+.ss-th{display:block;width:100%;height:78px;background:#fff;overflow:hidden}
 .ss-th canvas{display:block;width:100%;height:100%;object-fit:cover;object-position:top}
 .ss-filter.on{border-color:#ff5a50;color:#fff;font-weight:600}
 .ss-save{width:100%;height:50px;margin-top:8px;border:0;border-radius:12px;background:#C62828;color:#fff;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer}
@@ -118,7 +119,19 @@ body.ss-open{overflow:hidden}
 .ss-busy{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(19,16,16,.62);font-size:14px;color:#f3efef;z-index:3;text-align:center;padding:0 24px}
 .ss-loupe{position:absolute;width:112px;height:112px;border-radius:50%;border:3px solid #ff5a50;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.5);pointer-events:none;display:none;overflow:hidden;z-index:2}
 .ss-loupe canvas{display:block;width:100%;height:100%;cursor:default}
-@media (min-width:700px){.ss-filter{width:110px}.ss-th{height:110px}}
+.ss-fe{font-size:10.5px;color:#8f8585;font-weight:400}
+.ss-filter.on .ss-fe{color:#ffb4ae}
+.ss-result{align-items:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.ss-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:12px;width:100%;padding:2px 0 10px;align-content:start}
+.ss-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 8px 7px;border:1px solid #2f2727;background:#1c1616;color:#d8d0d0;border-radius:10px;cursor:pointer;font-size:12.5px;touch-action:manipulation}
+.ss-tile:active{background:#2a2323}
+.ss-tc{display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:210/297;background:#fff;border-radius:2px;color:#999;overflow:hidden}
+.ss-tc canvas{display:block;width:100%;height:100%;object-fit:contain}
+.ss-del{position:absolute;top:12px;right:12px;width:32px;height:32px;border:0;border-radius:50%;background:rgba(19,16,16,.78);color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.ss-del svg{width:18px;height:18px}
+.ss-addtile{justify-content:center;border:2px dashed #5a4d4d;background:transparent;color:#ff8a82;min-height:150px;font-weight:600;font-size:14px}
+.ss-addtile svg{width:30px;height:30px}
+@media (max-height:640px){.ss-th{height:56px}.ss-filter{width:68px}.ss-act{padding:6px 2px}}
 .fthumb{width:38px;height:50px;object-fit:cover;border-radius:4px;border:1px solid var(--line);background:#fff;flex:none}
 .fwrap{display:flex;gap:10px;align-items:center;min-width:0}
 
@@ -1531,19 +1544,26 @@ const PageQuad = (() => {
   }
 
   /* rgba: ảnh đã thu nhỏ (w x h). Trả về { q (toạ độ trên ảnh thu nhỏ) | null, best } */
+  function hugsBorder(q, w, h) {
+    for (let i = 0; i < 4; i++) {
+      const a = q[i], b = q[(i + 1) % 4];
+      if ((a[0] <= 3 && b[0] <= 3) || (a[0] >= w - 4 && b[0] >= w - 4) || (a[1] <= 3 && b[1] <= 3) || (a[1] >= h - 4 && b[1] >= h - 4)) return true;
+    }
+    return false;
+  }
   function find(rgba, w, h) {
     const P = planes(rgba, w * h);
     const fs = featPlane(P, w, h), uv = chromaPlanes(P, w, h);
     let best = null;
     for (const [hiMin, wdiv, minv, borders, npk] of PASSES) {
-      if (borders && best && accepted(best, w, h)) break;
+      if (borders && best && accepted(best, w, h) && !hugsBorder(best.q, w, h)) break;
       const fin = runPass(P, fs, uv, w, h, hiMin, wdiv, minv, borders, npk);
       if (fin.length) {
         const c = fin[0];
         if (!best) best = c;
         else if (accepted(c, w, h) && (!accepted(best, w, h) || c.total > best.total)) best = c;
       }
-      if (best && accepted(best, w, h) && best.total >= 0.78 && Math.min(...best.cg) >= 0.5) break;
+      if (best && accepted(best, w, h) && best.total >= 0.78 && Math.min(...best.cg) >= 0.5 && !hugsBorder(best.q, w, h)) break;
     }
     return { q: best && accepted(best, w, h) ? best.q : null, best };
   }
@@ -1669,67 +1689,89 @@ function otsuOf(hist, total) {
   return thr;
 }
 function enhanceScan(c, mode) {
+  // Các kiểu: orig (giữ màu gốc) | lighten (sáng hơn) | enhance (rõ nét, nền trắng) | bw (trắng đen)
+  //           noshadow (bỏ bóng, màu tự nhiên) | eco (tiết kiệm mực) | gray (thang xám)
   if (mode === 'orig') return c;
-  const w = c.width, h = c.height;
+  const w = c.width, h = c.height, n = w * h;
   const ctx = c.getContext('2d', { willReadFrequently: true });
   const id = ctx.getImageData(0, 0, w, h), D = id.data;
-  if (mode === 'color') {
+  const toU8 = v => v < 0 ? 0 : v > 255 ? 255 : v;
+  const normPlane = (plane) => {                 // chuẩn hoá nền giấy về trắng
+    const bg = paperBackground(plane, w, h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = y * w + x; plane[i] = plane[i] * 255 / bg(x, y); }
+    return plane;
+  };
+  const lumaPlane = () => { const g = new Float32Array(n); for (let i = 0; i < n; i++) g[i] = 0.299 * D[4 * i] + 0.587 * D[4 * i + 1] + 0.114 * D[4 * i + 2]; return g; };
+  const writeGray = (g, f) => { for (let i = 0; i < n; i++) { const v = toU8(f(g[i])); D[4 * i] = D[4 * i + 1] = D[4 * i + 2] = v; } };
+  const perChannel = (sharp, f) => {
     for (let ch = 0; ch < 3; ch++) {
-      let plane = new Float32Array(w * h);
-      for (let i = 0; i < w * h; i++) plane[i] = D[4 * i + ch];
-      const bg = paperBackground(plane, w, h);
-      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = y * w + x; plane[i] = plane[i] * 255 / bg(x, y); }
-      plane = sharpenPlane(plane, w, h, 0.9);
-      for (let i = 0; i < w * h; i++) D[4 * i + ch] = clamp((plane[i] - 24) * 255 / (238 - 24), 0, 255);   // giấy ngả xám nhẹ vẫn lên trắng hẳn, mực đậm lại
+      let plane = new Float32Array(n);
+      for (let i = 0; i < n; i++) plane[i] = D[4 * i + ch];
+      plane = normPlane(plane);
+      if (sharp) plane = sharpenPlane(plane, w, h, sharp);
+      for (let i = 0; i < n; i++) D[4 * i + ch] = toU8(f(plane[i]));
     }
-  } else {
-    // trắng đen: chuẩn hoá nền về trắng, rồi ép về đen/trắng theo ngưỡng giữa mực và giấy (chữ không bị đậm)
-    let g = new Float32Array(w * h);
-    for (let i = 0; i < w * h; i++) g[i] = 0.299 * D[4 * i] + 0.587 * D[4 * i + 1] + 0.114 * D[4 * i + 2];
-    const bg = paperBackground(g, w, h);
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = y * w + x; g[i] = clamp(g[i] * 255 / bg(x, y), 0, 255); }
-    g = sharpenPlane(g, w, h, 0.6);
+  };
+  if (mode === 'lighten') {
     const hist = new Uint32Array(256);
-    for (let i = 0; i < w * h; i++) hist[clamp(Math.round(g[i]), 0, 255)]++;
-    // ngưỡng nằm giữa mực và giấy: mực = mức tối nhất của khoảng 1% điểm tối nhất, giấy = trắng sau khi chuẩn hoá
-    let acc = 0, ink = 0; const target = w * h * 0.01;
+    for (let i = 0; i < n; i++) hist[Math.round(0.299 * D[4 * i] + 0.587 * D[4 * i + 1] + 0.114 * D[4 * i + 2])]++;
+    let acc = 0, p = 255; for (let t = 255; t >= 0; t--) { acc += hist[t]; if (acc >= n * 0.03) { p = Math.max(t, 60); break; } }
+    const gain = Math.min(2, Math.max(1, 242 / p));
+    const lut = new Uint8ClampedArray(256);
+    for (let v = 0; v < 256; v++) lut[v] = 255 * Math.pow(Math.min(255, v * gain) / 255, 0.88);
+    for (let i = 0; i < n; i++) { D[4 * i] = lut[D[4 * i]]; D[4 * i + 1] = lut[D[4 * i + 1]]; D[4 * i + 2] = lut[D[4 * i + 2]]; }
+  } else if (mode === 'enhance') {
+    perChannel(0.9, v => (v - 24) * 255 / (238 - 24));
+  } else if (mode === 'noshadow') {
+    perChannel(0.35, v => v * 255 / 248);
+  } else if (mode === 'gray') {
+    let g = sharpenPlane(normPlane(lumaPlane()), w, h, 0.7);
+    writeGray(g, v => (v - 22) * 255 / (238 - 22));
+  } else if (mode === 'eco') {
+    const g = sharpenPlane(normPlane(lumaPlane()), w, h, 0.4);
+    writeGray(g, v => { const x = 255 - (255 - v) * 0.55; const t = Math.min(1, Math.max(0, (x - 205) / 30)); return x * (1 - t) + 255 * t; });
+  } else {
+    // trắng đen: chuẩn hoá nền về trắng, rồi ép đen/trắng quanh ngưỡng nằm giữa mực và giấy (nét chữ không bị đậm)
+    let g = sharpenPlane(normPlane(lumaPlane()), w, h, 0.6);
+    const hist = new Uint32Array(256);
+    for (let i = 0; i < n; i++) hist[clamp(Math.round(g[i]), 0, 255)]++;
+    let acc = 0, ink = 0; const target = n * 0.01;
     for (let t = 0; t < 256; t++) { acc += hist[t]; if (acc >= target) { ink = t; break; } }
-    const thr = clamp((ink + 250) / 2, 100, 172);
-    const lo = thr - 30, hi = thr + 30;
-    for (let i = 0; i < w * h; i++) {
-      let t = (g[i] - lo) / (hi - lo); t = t < 0 ? 0 : t > 1 ? 1 : t;
-      const v = t * t * (3 - 2 * t) * 255;
-      D[4 * i] = D[4 * i + 1] = D[4 * i + 2] = v;
-    }
+    const thr = clamp((ink + 250) / 2, 100, 172), lo = thr - 30, hi = thr + 30;
+    writeGray(g, v => { let t = (v - lo) / (hi - lo); t = t < 0 ? 0 : t > 1 ? 1 : t; return t * t * (3 - 2 * t) * 255; });
   }
   ctx.putImageData(id, 0, 0);
   return c;
 }
 
-/* ---------- chữ ký "Scan by Minh Leonard" đóng lên trang ---------- */
+/* ---------- chữ ký "Scan by Minh Leonard" đóng ở góc phải dưới trang (cao 15 điểm PDF, chữ ký 11pt) ---------- */
+const STAMP_H = 15;           // chiều cao con dấu trên trang, tính bằng điểm PDF
 let logoP = null;
 function signatureLogo() {
   if (logoP) return logoP;
   logoP = (async () => {
-    try { await Promise.race([document.fonts.load('600 80px "Dancing Script"'), sleep(1500)]); } catch (e) { /* dùng phông dự phòng */ }
-    const script = '600 92px "Dancing Script", "Segoe Script", "Brush Script MT", cursive';
+    try { await Promise.race([document.fonts.load('600 40px "Dancing Script"'), sleep(1500)]); } catch (e) { /* dùng phông dự phòng */ }
+    const S = 8;                                              // điểm ảnh trên mỗi điểm PDF
+    const script = `600 ${11 * S}px "Dancing Script", "Segoe Script", "Brush Script MT", cursive`;
+    const sans = `500 ${8 * S}px "Be Vietnam Pro", system-ui, sans-serif`;
     const probe = document.createElement('canvas').getContext('2d');
-    probe.font = script;
-    const tw = Math.ceil(probe.measureText('Minh Leonard').width);
-    const H = 168, X = 96, W = X + tw + 28;
+    probe.font = sans; const w1 = Math.ceil(probe.measureText('Scan by').width);
+    probe.font = script; const w2 = Math.ceil(probe.measureText('Minh Leonard').width);
+    const iconW = 9 * S, gap = 3.5 * S, W = Math.ceil(iconW + gap + w1 + 2.5 * S + w2 + 2 * S), H = STAMP_H * S;
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const g = c.getContext('2d');
-    g.fillStyle = '#C62828';                                   // biểu tượng tờ giấy
-    g.beginPath(); g.moveTo(14, 26); g.lineTo(54, 26); g.lineTo(76, 48); g.lineTo(76, 144); g.lineTo(14, 144); g.closePath(); g.fill();
-    g.fillStyle = 'rgba(255,255,255,.38)';
-    g.beginPath(); g.moveTo(54, 26); g.lineTo(76, 48); g.lineTo(54, 48); g.closePath(); g.fill();
+    const u = S;                                              // 1 điểm PDF
+    g.fillStyle = '#C62828';                                  // biểu tượng tờ giấy
+    g.beginPath(); g.moveTo(0.5 * u, 2.5 * u); g.lineTo(5.6 * u, 2.5 * u); g.lineTo(8.5 * u, 5.4 * u); g.lineTo(8.5 * u, 12.5 * u); g.lineTo(0.5 * u, 12.5 * u); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.4)';
+    g.beginPath(); g.moveTo(5.6 * u, 2.5 * u); g.lineTo(8.5 * u, 5.4 * u); g.lineTo(5.6 * u, 5.4 * u); g.closePath(); g.fill();
     g.fillStyle = '#fff';
-    g.fillRect(27, 70, 36, 5); g.fillRect(27, 87, 36, 5); g.fillRect(27, 104, 24, 5);
+    g.fillRect(2.2 * u, 7.2 * u, 4.6 * u, 0.7 * u); g.fillRect(2.2 * u, 8.9 * u, 4.6 * u, 0.7 * u); g.fillRect(2.2 * u, 10.6 * u, 3 * u, 0.7 * u);
     g.textBaseline = 'alphabetic';
-    g.fillStyle = '#6B6262'; g.font = '500 33px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText('Scan by', X, 60);
-    g.fillStyle = '#C62828'; g.font = script; g.fillText('Minh Leonard', X, 132);
-    g.strokeStyle = '#C62828'; g.lineWidth = 3; g.lineCap = 'round';
-    g.beginPath(); g.moveTo(X + 6, 150); g.quadraticCurveTo(X + tw * 0.5, 141, X + tw, 152); g.stroke();
+    let x = iconW + gap;
+    g.fillStyle = '#6B6262'; g.font = sans; g.fillText('Scan by', x, 9.6 * u);
+    x += w1 + 2.5 * S;
+    g.fillStyle = '#C62828'; g.font = script; g.fillText('Minh Leonard', x, 11.4 * u);
     const blob = await canvasBlob(c, 'image/png');
     freeCanvas(c);
     return { bytes: await blobBytes(blob), w: W, h: H };
@@ -1791,7 +1833,10 @@ const SVG_COMPARE = '<path d="M12 3v18"/><rect x="3" y="5" width="7" height="14"
 const SVG_OCR = '<path d="M4 7V5h16v2"/><path d="M12 5v14"/><path d="M9 19h6"/>';
 const SVG_PAGE = '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>';
 
-const SCAN_FILTERS = [['orig', 'Màu gốc'], ['color', 'Làm sáng'], ['bw', 'Trắng đen']];
+const SVG_PLUS = '<path d="M12 5v14"/><path d="M5 12h14"/>';
+const SVG_TRASH = '<path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12"/><path d="M9 7V4h6v3"/>';
+const SCAN_FILTERS = [['orig', 'Màu gốc', 'Original'], ['lighten', 'Làm sáng', 'Lighten'], ['enhance', 'Rõ nét', 'Enhance'], ['bw', 'Trắng đen', 'B&W'],
+  ['noshadow', 'Bỏ bóng', 'No Shadow'], ['eco', 'Tiết kiệm mực', 'Eco'], ['gray', 'Xám', 'Grayscale']];
 const SCAN_PREF_KEY = 'scanpdf-scan-prefs';
 function loadScanPrefs() { try { return JSON.parse(localStorage.getItem(SCAN_PREF_KEY)) || {}; } catch (e) { return {}; } }
 function saveScanPrefs(p) { try { localStorage.setItem(SCAN_PREF_KEY, JSON.stringify(p)); } catch (e) { /* không lưu được thì bỏ qua */ } }
@@ -1839,8 +1884,8 @@ function pageLayout(w, h, size) {
   return { pw, ph, dw, dh, ix: (pw - dw) / 2, iy: (ph - dh) / 2, k };
 }
 function stampBox(pw, ph, logo) {
-  const lw = clamp(pw * 0.25, 92, 180), lh = lw * logo.h / logo.w;
-  return { lw, lh, x: pw - lw - 12, y: ph - lh - 10 };   // y tính từ đáy trang
+  const lh = STAMP_H, lw = lh * logo.w / logo.h;
+  return { lw, lh, x: pw - lw - 14, y: 11 };             // y tính từ đáy trang
 }
 function composePage(img, size, logoBmp, logo, longSide) {
   const L = pageLayout(img.width, img.height, size), s = longSide / Math.max(L.pw, L.ph);
@@ -1858,20 +1903,22 @@ function composePage(img, size, logoBmp, logo, longSide) {
   return c;
 }
 
-async function openScanStudio() {
-  if (document.querySelector('.ss') || !items.length) return;
+let scanStudio = null;          // cửa sổ Scan đang mở (để "Thêm ảnh" đưa ảnh mới vào cùng một bản scan)
+async function openScanStudio(newItems) {
+  if (scanStudio) { if (newItems && newItems.length) scanStudio.addPages(newItems); return; }
+  if (!items.length) return;
   const prefs = loadScanPrefs();
+  const mkPage = it => ({ it, rot: (it.scan && it.scan.rot) || 0, q: (it.scan && it.scan.q) ? it.scan.q.map(p => p.slice()) : null, ver: 0, thumb: null, thumbKey: '' });
   const st = {
     phase: 'crop', idx: 0, alive: true, busy: false, tok: 0, compare: false,
-    pages: items.map(it => ({ it, rot: (it.scan && it.scan.rot) || 0, q: (it.scan && it.scan.q) ? it.scan.q.map(p => p.slice()) : null, ver: 0 })),
-    mode: SCAN_FILTERS.some(f => f[0] === prefs.mode) ? prefs.mode : 'color',
+    pages: items.map(mkPage),
+    queue: [], qpos: 0,                      // các trang đang đi qua bước cắt
+    mode: 'enhance',                         // luôn bắt đầu bằng "Rõ nét": làm sáng, rõ chữ, bỏ đổ bóng
     size: prefs.size === 'fit' ? 'fit' : 'a4',
-    stamp: prefs.stamp !== false,
+    stamp: true,                             // chữ ký luôn bật mặc định
     ocr: !!prefs.ocr,
     name: '',
   };
-  const n = items.length;
-  const defName = n === 1 ? safeName(baseName(items[0].name)) + '_scan' : `Ban_scan_${n}_trang`;
   const dpr = Math.min(2, window.devicePixelRatio || 1), PAD = 16;
   const head = el('div', { class: 'ss-head' });
   const stage = el('div', { class: 'ss-stage' });
@@ -1880,19 +1927,20 @@ async function openScanStudio() {
   const busyEl = el('div', { class: 'ss-busy' });
   const loupe = el('div', { class: 'ss-loupe' }, el('canvas'));
   document.body.append(root); document.body.classList.add('ss-open');
+  const defName = () => st.pages.length === 1 ? safeName(baseName(st.pages[0].it.name)) + '_scan' : `Ban_scan_${st.pages.length}_trang`;
 
   const busy = msg => { st.busy = !!msg; busyEl.textContent = msg || ''; busyEl.style.display = msg ? 'flex' : 'none'; root.classList.toggle('is-busy', !!msg); };
   const btn = (cls, icon, label, fn, attrs = {}) => el('button', { type: 'button', class: cls, onclick: fn, ...attrs }, svgIcon(icon), label ? el('span', { text: label }) : null);
-  const pager = (onMove) => n > 1 ? el('div', { class: 'ss-pager' },
-    btn('ss-ib sm', SVG_CHEV_L, null, () => onMove(-1), { 'aria-label': 'Ảnh trước', disabled: st.idx === 0 ? true : null }),
-    el('span', { text: `${st.idx + 1}/${n}` }),
-    btn('ss-ib sm', SVG_CHEV_R, null, () => onMove(1), { 'aria-label': 'Ảnh sau', disabled: st.idx === n - 1 ? true : null })) : null;
+  const pager = (pos, total, onMove) => total > 1 ? el('div', { class: 'ss-pager' },
+    btn('ss-ib sm', SVG_CHEV_L, null, () => onMove(-1), { 'aria-label': 'Ảnh trước', disabled: pos === 0 ? true : null }),
+    el('span', { text: `${pos + 1}/${total}` }),
+    btn('ss-ib sm', SVG_CHEV_R, null, () => onMove(1), { 'aria-label': 'Ảnh sau', disabled: pos === total - 1 ? true : null })) : '';
+  const setPref = (k, v) => { st[k] = v; const p = loadScanPrefs(); p[k] = v; saveScanPrefs(p); };
 
-  /* ===== Bước 1: cắt ảnh ===== */
+  /* ===== Bước 1: cắt ảnh, tự lấy 4 góc giấy ===== */
   let base = null, bw = 0, bh = 0, q = null, sc = 1, drag = null, good = null, cv = null;
   const freeBase = () => { if (base) { freeCanvas(base); base = null; } };
-  const syncQ = () => { if (q && base) st.pages[st.idx].q = q.map(([x, y]) => [x / bw, y / bh]); };
-
+  const syncQ = () => { if (q && base && st.phase === 'crop') st.pages[st.idx].q = q.map(([x, y]) => [x / bw, y / bh]); };
   function fit() {
     if (!cv || !base) return;
     const aw = Math.max(80, stage.clientWidth - 20 - 2 * PAD), ah = Math.max(80, stage.clientHeight - 20 - 2 * PAD);
@@ -1919,14 +1967,14 @@ async function openScanStudio() {
     g.lineJoin = 'round';
     g.strokeStyle = '#fff'; g.lineWidth = 4.5 * dpr; g.beginPath(); q.forEach((p, i) => i ? g.lineTo(p[0] * k, p[1] * k) : g.moveTo(p[0] * k, p[1] * k)); g.closePath(); g.stroke();
     g.strokeStyle = '#E53935'; g.lineWidth = 2.2 * dpr; g.stroke();
-    for (let i = 0; i < 4; i++) {                     // điểm giữa cạnh
+    for (let i = 0; i < 4; i++) {
       const [mx, my] = midOf(i), a = q[i], b = q[(i + 1) % 4], ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
       g.save(); g.translate(mx * k, my * k); g.rotate(ang);
       const hw = 13 * dpr, hh = 5 * dpr;
       g.beginPath(); if (g.roundRect) g.roundRect(-hw, -hh, hw * 2, hh * 2, hh); else g.rect(-hw, -hh, hw * 2, hh * 2); g.fillStyle = '#fff'; g.fill(); g.lineWidth = 2 * dpr; g.strokeStyle = '#E53935'; g.stroke();
       g.restore();
     }
-    q.forEach((p, i) => {                             // 4 góc
+    q.forEach((p, i) => {
       g.beginPath(); g.arc(p[0] * k, p[1] * k, (drag && drag.kind === 'c' && drag.i === i ? 12 : 10) * dpr, 0, 7);
       g.fillStyle = '#E53935'; g.fill(); g.lineWidth = 3 * dpr; g.strokeStyle = '#fff'; g.stroke();
     });
@@ -1963,7 +2011,7 @@ async function openScanStudio() {
     if (drag.kind === 'c') { q[drag.i] = [x, y]; draw(); showLoupe(q[drag.i], e.clientX, e.clientY); return; }
     const i = drag.i, j = (i + 1) % 4, a = drag.snap[i], b = drag.snap[j];
     const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
-    const t = (x - drag.start[0]) * nx + (y - drag.start[1]) * ny;     // chỉ dời cạnh theo phương vuông góc
+    const t = (x - drag.start[0]) * nx + (y - drag.start[1]) * ny;
     q[i] = [clamp(a[0] + nx * t, 0, bw), clamp(a[1] + ny * t, 0, bh)];
     q[j] = [clamp(b[0] + nx * t, 0, bw), clamp(b[1] + ny * t, 0, bh)];
     draw();
@@ -1974,36 +2022,37 @@ async function openScanStudio() {
     if (!isConvexQuad(q)) { q = good; toast('4 góc phải tạo thành hình tứ giác lồi'); }
     syncQ(); st.pages[st.idx].ver++; draw();
   }
-
   async function detect(canvas) {
     await sleep(40);
     try { return findPageCorners(canvas); } catch (e) { return null; }
   }
   async function loadCrop(i) {
-    st.idx = i; freeBase(); q = null;
+    st.phase = 'crop'; st.idx = i; freeBase(); q = null;
     renderCropChrome();
     busy('Đang mở ảnh…');
     const p = st.pages[i];
     let raw;
     try { raw = await imageToCanvas(p.it.file, 1600); }
     catch (e) { busy(null); toast(e instanceof UserError ? e.message : 'Không mở được ảnh này'); return; }
-    if (!st.alive || st.idx !== i) { freeCanvas(raw); return; }
+    if (!st.alive || st.idx !== i || st.phase !== 'crop') { freeCanvas(raw); return; }
     base = rotateCanvas(raw, p.rot); if (base !== raw) freeCanvas(raw);
     bw = base.width; bh = base.height;
     if (!p.q) {
-      busy('Đang tìm 4 góc tờ giấy…');
+      busy('Đang tự tìm 4 góc tờ giấy…');
       const r = await detect(base);
-      if (!st.alive || st.idx !== i) return;
+      if (!st.alive || st.idx !== i || st.phase !== 'crop') return;
       if (r) p.q = r.map(([x, y]) => [x / bw, y / bh]);
       else { p.q = insetQuad(0.02); toast('Chưa tự tìm chắc được 4 góc. Hãy kéo các điểm vào 4 góc tờ giấy.'); }
+      p.ver++;
     }
     q = p.q.map(([u, v]) => [u * bw, v * bh]);
+    stage.className = 'ss-stage ss-crop';
     stage.replaceChildren(); cv = el('canvas'); stage.append(cv, loupe, busyEl);
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove);
     cv.addEventListener('pointerup', onUp); cv.addEventListener('pointercancel', onUp);
     busy(null); fit();
   }
-  async function rotatePage(dir) {
+  async function rotateCrop(dir) {
     if (st.busy || !base) return;
     const p = st.pages[st.idx]; syncQ();
     p.rot = (p.rot + dir + 4) % 4; p.q = rotateQuadNorm(p.q, dir); p.ver++;
@@ -2020,36 +2069,34 @@ async function openScanStudio() {
     else toast('Chưa tự tìm chắc được 4 góc. Hãy kéo các điểm bằng tay.');
   }
   function wholeImage() { if (st.busy || !base) return; q = [[0, 0], [bw, 0], [bw, bh], [0, bh]]; syncQ(); st.pages[st.idx].ver++; draw(); }
-  async function movePage(d) {
+  async function moveCrop(d) {
     if (st.busy) return;
-    const j = st.idx + d; if (j < 0 || j >= n) return;
-    syncQ(); await loadCrop(j);
+    const j = st.qpos + d; if (j < 0 || j >= st.queue.length) return;
+    syncQ(); st.qpos = j; await loadCrop(st.queue[j]);
   }
   async function cropNext() {
     if (st.busy) return;
     syncQ();
-    if (st.idx < n - 1) { await loadCrop(st.idx + 1); return; }
-    await enterPreview();
+    if (st.qpos < st.queue.length - 1) { st.qpos++; await loadCrop(st.queue[st.qpos]); return; }
+    await enterEnhance(st.queue[0]);
   }
   function renderCropChrome() {
-    stage.className = 'ss-stage ss-crop';
     head.replaceChildren(
       btn('ss-ib', SVG_CLOSE, null, close, { 'aria-label': 'Đóng' }),
       el('div', { class: 'ss-title' }, 'Cắt ảnh', el('small', { text: st.pages[st.idx].it.name })),
-      pager(movePage) || '');
+      pager(st.qpos, st.queue.length, moveCrop));
     bottom.replaceChildren(el('div', { class: 'ss-bar' },
-      btn('ss-act', SVG_ROT_L, 'Xoay trái', () => rotatePage(-1)),
-      btn('ss-act', SVG_ROT_R, 'Xoay phải', () => rotatePage(1)),
+      btn('ss-act', SVG_ROT_L, 'Xoay trái', () => rotateCrop(-1)),
+      btn('ss-act', SVG_ROT_R, 'Xoay phải', () => rotateCrop(1)),
       btn('ss-act', SVG_FULL, 'Cả ảnh', wholeImage),
       btn('ss-act', SVG_AUTO, 'Tự tìm', reDetect),
       btn('ss-act primary', SVG_NEXT, 'Tiếp', cropNext)));
   }
 
-  /* ===== Bước 2: xem trước, chọn màu, tuỳ chọn, lưu ===== */
-  let cur = null;        // { idx, ver, cut, filt:{} } chỉ giữ trang đang xem để tiết kiệm bộ nhớ
-  let logo = null, logoBmp = null, pageCv = null, nameInput = null;
-  const freeCur = () => { if (cur) { freeCanvas(cur.cut); Object.values(cur.filt).forEach(freeCanvas); cur = null; } };
-
+  /* ===== Bước 2: quét trang (làm sáng, rõ nét, bỏ đổ bóng), chọn kiểu màu ===== */
+  let cur = null;        // { idx, ver, cut, small, filt:{} } chỉ giữ trang đang xem để tiết kiệm bộ nhớ
+  let logo = null, logoBmp = null, pageCv = null;
+  const freeCur = () => { if (cur) { freeCanvas(cur.cut); freeCanvas(cur.small); Object.values(cur.filt).forEach(freeCanvas); cur = null; } };
   async function buildCut(i) {
     const p = st.pages[i];
     const raw = await imageToCanvas(p.it.file, 1400);
@@ -2060,100 +2107,115 @@ async function openScanStudio() {
     }
     return scaleToMax(c, 1100);
   }
-  async function filtered(mode) {
-    if (mode === 'orig') return cur.cut;
-    if (!cur.filt[mode]) { const c = copyCanvas(cur.cut); await sleep(0); enhanceScan(c, mode); cur.filt[mode] = c; }
-    return cur.filt[mode];
+  async function filtered(mode, smallVer) {                // smallVer: bản rất nhỏ cho ảnh xem nhanh các kiểu màu
+    const src = smallVer ? cur.small : cur.cut, store = smallVer ? 's:' + mode : mode;
+    if (mode === 'orig') return src;
+    if (!cur.filt[store]) { const c = copyCanvas(src); await sleep(0); enhanceScan(c, mode); cur.filt[store] = c; }
+    return cur.filt[store];
   }
   function fitPage(c) {
     const aw = Math.max(80, stage.clientWidth - 20), ah = Math.max(80, stage.clientHeight - 20);
     const k = Math.min(aw / c.width, ah / c.height);
     c.style.width = Math.round(c.width * k) + 'px'; c.style.height = Math.round(c.height * k) + 'px';
   }
-  async function paintPage() {
-    if (!cur) return;
+  function paintPage() {
+    if (!cur || st.phase !== 'enhance') return;
     const src = (st.compare || st.mode === 'orig') ? cur.cut : cur.filt[st.mode];
     if (!src) return;
     const c = composePage(src, st.size, st.stamp ? logoBmp : null, logo, 1400);
     if (pageCv) pageCv.remove();
     pageCv = c; stage.className = 'ss-stage ss-page'; stage.prepend(c); fitPage(c);
   }
-  async function showPage() {
-    const i = st.idx, tok = ++st.tok, p = st.pages[i];
-    renderPreviewChrome();
-    busy('Đang xử lý trang…');
-    if (!cur || cur.idx !== i || cur.ver !== p.ver) {
-      freeCur();
-      try { cur = { idx: i, ver: p.ver, cut: await buildCut(i), filt: {} }; }
-      catch (e) { busy(null); toast(e instanceof UserError ? e.message : 'Không mở được ảnh này'); return; }
-      if (tok !== st.tok || !st.alive) return;
-    }
+  async function ensureLogo() {
+    if (logo) return;
+    logo = await signatureLogo();
+    try { logoBmp = await createImageBitmap(new Blob([logo.bytes], { type: 'image/png' })); } catch (e) { logoBmp = null; }
+  }
+  async function loadCur(i) {
+    const p = st.pages[i];
+    if (cur && cur.idx === i && cur.ver === p.ver) return true;
+    freeCur();
+    try {
+      const cut = await buildCut(i), k = Math.min(1, 380 / Math.max(cut.width, cut.height)), s = document.createElement('canvas');
+      s.width = Math.max(1, Math.round(cut.width * k)); s.height = Math.max(1, Math.round(cut.height * k));
+      const g = s.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(cut, 0, 0, s.width, s.height);
+      cur = { idx: i, ver: p.ver, cut, small: s, filt: {} };
+    } catch (e) { toast(e instanceof UserError ? e.message : 'Không mở được ảnh này'); return false; }
+    return true;
+  }
+  async function showEnhance() {
+    const i = st.idx, tok = ++st.tok;
+    st.phase = 'enhance';
+    renderEnhanceChrome();
+    busy('Đang quét trang: làm sáng, rõ chữ, bỏ đổ bóng…');
+    await ensureLogo();
+    if (!(await loadCur(i))) { busy(null); return; }
+    if (tok !== st.tok || !st.alive) return;
     await filtered(st.mode);
     if (tok !== st.tok || !st.alive) return;
     busy(null);
-    await paintPage();
-    // ảnh thu nhỏ cho từng bộ lọc (tính dần để máy yếu không bị đứng)
-    for (const [m] of SCAN_FILTERS) {
+    paintPage();
+    for (const [m] of SCAN_FILTERS) {                     // ảnh xem nhanh từng kiểu màu (tính dần để máy yếu không bị đứng)
       if (tok !== st.tok || !st.alive) return;
       const holder = bottom.querySelector(`[data-f="${m}"] .ss-th`);
       if (!holder) continue;
-      const src = await filtered(m);
+      const src = await filtered(m, true);
       if (tok !== st.tok || !st.alive) return;
-      const th = document.createElement('canvas'), k = 150 / src.width;
-      th.width = 150; th.height = Math.max(1, Math.round(src.height * k));
-      const g = th.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(src, 0, 0, th.width, th.height);
+      const th = document.createElement('canvas');
+      th.width = src.width; th.height = src.height; th.getContext('2d').drawImage(src, 0, 0);
       holder.replaceChildren(th);
       await sleep(0);
     }
   }
-  function setPref(k, v) { st[k] = v; const p = loadScanPrefs(); p[k] = v; saveScanPrefs(p); }
   async function pickFilter(m) {
     if (st.busy || m === st.mode) return;
-    setPref('mode', m);
+    st.mode = m;
     bottom.querySelectorAll('.ss-filter').forEach(b => b.classList.toggle('on', b.dataset.f === m));
     const tok = ++st.tok; busy('Đang áp dụng…');
     await filtered(m);
     if (tok !== st.tok || !st.alive) return;
     busy(null); paintPage();
   }
-  function renderPreviewChrome() {
-    nameInput = el('input', { class: 'ss-name', type: 'text', value: st.name, placeholder: defName, 'aria-label': 'Tên file', autocomplete: 'off', spellcheck: 'false',
-      oninput: e => { st.name = e.target.value; } });
+  async function rotateLeftEnhance() {
+    if (st.busy) return;
+    const p = st.pages[st.idx];
+    p.rot = (p.rot + 3) % 4; p.q = rotateQuadNorm(p.q, -1); p.ver++; p.thumbKey = '';
+    await showEnhance();
+  }
+  function renderEnhanceChrome() {
     head.replaceChildren(
       btn('ss-ib', SVG_BACK, null, backToCrop, { 'aria-label': 'Quay lại cắt ảnh' }),
-      nameInput,
-      pager(movePreview) || '');
-    const filters = el('div', { class: 'ss-filters', role: 'group', 'aria-label': 'Chọn màu' }, SCAN_FILTERS.map(([m, label]) =>
+      el('div', { class: 'ss-title' }, 'Làm sáng & chọn màu', el('small', { text: st.pages[st.idx].it.name })),
+      pager(st.idx, st.pages.length, moveEnhance));
+    const filters = el('div', { class: 'ss-filters', role: 'group', 'aria-label': 'Chọn kiểu màu' }, SCAN_FILTERS.map(([m, vi, en]) =>
       el('button', { type: 'button', class: 'ss-filter' + (m === st.mode ? ' on' : ''), 'data-f': m, onclick: () => pickFilter(m) },
-        el('span', { class: 'ss-th' }), el('span', { text: label }))));
+        el('span', { class: 'ss-th' }), el('span', { class: 'ss-fl', text: vi }), el('span', { class: 'ss-fe', text: en }))));
     const cmp = btn('ss-act', SVG_COMPARE, 'So sánh', null, { 'aria-label': 'Giữ để xem ảnh gốc' });
     const hold = v => e => { e.preventDefault(); if (st.compare !== v) { st.compare = v; paintPage(); } };
     cmp.addEventListener('pointerdown', hold(true)); ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => cmp.addEventListener(t, hold(false)));
     cmp.addEventListener('contextmenu', e => e.preventDefault());
     const stampBtn = btn('ss-act' + (st.stamp ? ' on' : ''), SVG_SIGN, st.stamp ? 'Chữ ký: Bật' : 'Chữ ký: Tắt', () => {
-      setPref('stamp', !st.stamp); stampBtn.classList.toggle('on', st.stamp); stampBtn.lastChild.textContent = st.stamp ? 'Chữ ký: Bật' : 'Chữ ký: Tắt'; paintPage();
-    }, { 'aria-pressed': String(st.stamp) });
-    const sizeBtn = btn('ss-act', SVG_PAGE, st.size === 'fit' ? 'Khổ giấy' : 'Khổ A4', () => {
-      setPref('size', st.size === 'a4' ? 'fit' : 'a4'); sizeBtn.lastChild.textContent = st.size === 'fit' ? 'Khổ giấy' : 'Khổ A4'; paintPage();
-    });
-    const ocrBtn = btn('ss-act' + (st.ocr ? ' on' : ''), SVG_OCR, st.ocr ? 'OCR: Bật' : 'OCR: Tắt', () => {
-      setPref('ocr', !st.ocr); ocrBtn.classList.toggle('on', st.ocr); ocrBtn.lastChild.textContent = st.ocr ? 'OCR: Bật' : 'OCR: Tắt';
-    }, { title: 'Thêm lớp chữ ẩn để tìm kiếm và sao chép chữ trong PDF (mất thêm vài giây mỗi trang)' });
+      st.stamp = !st.stamp; st.pages.forEach(p => { p.thumbKey = ''; });
+      stampBtn.classList.toggle('on', st.stamp); stampBtn.lastChild.textContent = st.stamp ? 'Chữ ký: Bật' : 'Chữ ký: Tắt'; paintPage();
+    }, { 'aria-pressed': 'true' });
     bottom.replaceChildren(filters,
-      el('div', { class: 'ss-bar' }, cmp, stampBtn, sizeBtn, ocrBtn),
-      el('button', { type: 'button', class: 'ss-save', onclick: finish }, svgIcon(SVG_SAVE), el('span', { text: 'Lưu thành PDF' })));
+      el('div', { class: 'ss-bar' },
+        btn('ss-act', SVG_ROT_L, 'Xoay trái', rotateLeftEnhance),
+        cmp, stampBtn,
+        btn('ss-act primary', SVG_NEXT, 'Tiếp', toResult)));
+    const on = filters.querySelector('.on'); if (on) setTimeout(() => { try { on.scrollIntoView({ inline: 'center', block: 'nearest' }); } catch (e) { /* */ } }, 0);
   }
-  async function movePreview(d) {
+  async function moveEnhance(d) {
     if (st.busy) return;
-    const j = st.idx + d; if (j < 0 || j >= n) return;
-    st.idx = j; await showPage();
+    const j = st.idx + d; if (j < 0 || j >= st.pages.length) return;
+    st.idx = j; await showEnhance();
   }
-  async function enterPreview() {
+  async function enterEnhance(i) {
     syncQ(); freeBase(); cv = null;
-    stage.replaceChildren(busyEl, loupe);
-    const todo = st.pages.map((p, i) => [p, i]).filter(([p]) => !p.q);
+    stage.className = 'ss-stage'; stage.replaceChildren(busyEl, loupe);
+    const todo = st.pages.filter(p => !p.q);
     for (let k = 0; k < todo.length; k++) {      // ảnh chưa xem ở bước cắt: tự tìm góc
-      const [p] = todo[k];
+      const p = todo[k];
       busy(`Đang tìm góc giấy ${k + 1}/${todo.length}…`);
       try {
         const raw = await imageToCanvas(p.it.file, 1000);
@@ -2164,15 +2226,85 @@ async function openScanStudio() {
       } catch (e) { p.q = insetQuad(0.02); }
       if (!st.alive) return;
     }
-    if (!logo) { logo = await signatureLogo(); try { logoBmp = await createImageBitmap(new Blob([logo.bytes], { type: 'image/png' })); } catch (e) { logoBmp = null; } }
-    st.phase = 'preview'; st.idx = 0; st.compare = false;
-    await showPage();
+    st.compare = false; st.idx = i;
+    await showEnhance();
   }
   async function backToCrop() {
     if (st.busy) return;
-    st.tok++; st.phase = 'crop'; pageCv = null; freeCur();
+    st.tok++; pageCv = null; freeCur();
+    stage.className = 'ss-stage'; stage.replaceChildren(busyEl, loupe);
+    st.queue = [st.idx]; st.qpos = 0;
+    await loadCrop(st.idx);
+  }
+
+  /* ===== Bước 3: kết quả (danh sách trang), thêm ảnh, lưu ===== */
+  let nameInput = null;
+  async function toResult() {
+    if (st.busy) return;
+    st.tok++; const tok = st.tok;
+    st.phase = 'result'; pageCv = null;
+    renderResultChrome();
+    stage.className = 'ss-stage ss-result';
     stage.replaceChildren(busyEl, loupe);
-    await loadCrop(Math.min(st.idx, n - 1));
+    const grid = el('div', { class: 'ss-grid' });
+    stage.prepend(grid);
+    const tiles = st.pages.map((p, i) => {
+      const holder = el('span', { class: 'ss-tc' }, el('span', { class: 'ss-spin', text: '…' }));
+      const del = btn('ss-del', SVG_TRASH, null, e => { e.stopPropagation(); removePage(i); }, { 'aria-label': `Xoá trang ${i + 1}` });
+      const t = el('button', { type: 'button', class: 'ss-tile', onclick: () => { st.idx = i; showEnhance(); }, 'aria-label': `Sửa trang ${i + 1}` }, holder, el('span', { class: 'ss-tl', text: `Trang ${i + 1}` }), del);
+      grid.append(t);
+      return holder;
+    });
+    grid.append(el('button', { type: 'button', class: 'ss-tile ss-addtile', onclick: addMore }, svgIcon(SVG_PLUS), el('span', { text: 'Thêm ảnh' })));
+    await ensureLogo();
+    for (let i = 0; i < st.pages.length; i++) {
+      if (tok !== st.tok || !st.alive) return;
+      const p = st.pages[i], key = [p.ver, p.rot, st.mode, st.stamp, st.size].join('|');
+      if (p.thumbKey !== key || !p.thumb) {
+        try {
+          const keep = cur && cur.idx === i && cur.ver === p.ver;
+          let cut, own = false;
+          if (keep) cut = cur.cut; else { cut = await buildCut(i); own = true; }
+          let f;
+          if (st.mode === 'orig') f = cut; else if (keep && cur.filt[st.mode]) f = cur.filt[st.mode]; else { f = copyCanvas(cut); await sleep(0); enhanceScan(f, st.mode); }
+          if (p.thumb) freeCanvas(p.thumb);
+          p.thumb = composePage(f, st.size, st.stamp ? logoBmp : null, logo, 420); p.thumbKey = key;
+          if (f !== cut && !(keep && cur.filt[st.mode])) freeCanvas(f);
+          if (own) freeCanvas(cut);
+        } catch (e) { tiles[i].textContent = 'Lỗi'; continue; }
+      }
+      if (tok !== st.tok || !st.alive) return;
+      const c = copyCanvas(p.thumb); tiles[i].replaceChildren(c);
+      await sleep(0);
+    }
+  }
+  function removePage(i) {
+    if (st.pages.length <= 1) { toast('Cần ít nhất 1 trang. Bấm "Thêm ảnh" nếu muốn đổi ảnh khác.'); return; }
+    const p = st.pages[i]; if (p.thumb) freeCanvas(p.thumb);
+    const k = items.indexOf(p.it); if (k >= 0) items.splice(k, 1);
+    st.pages.splice(i, 1); renderFiles();
+    if (cur) freeCur();
+    st.idx = Math.min(st.idx, st.pages.length - 1);
+    toResult();
+  }
+  function addMore() {
+    if (st.busy) return;
+    if (IS_ANDROID) askImageSource(); else $('#libInput').click();
+  }
+  function renderResultChrome() {
+    nameInput = el('input', { class: 'ss-name', type: 'text', value: st.name, placeholder: defName(), 'aria-label': 'Tên file', autocomplete: 'off', spellcheck: 'false', oninput: e => { st.name = e.target.value; } });
+    head.replaceChildren(
+      btn('ss-ib', SVG_BACK, null, () => { if (!st.busy) { st.tok++; st.idx = Math.min(st.idx, st.pages.length - 1); showEnhance(); } }, { 'aria-label': 'Quay lại chọn màu' }),
+      nameInput);
+    const sizeBtn = btn('ss-act', SVG_PAGE, st.size === 'fit' ? 'Khổ giấy' : 'Khổ A4', () => {
+      setPref('size', st.size === 'a4' ? 'fit' : 'a4'); sizeBtn.lastChild.textContent = st.size === 'fit' ? 'Khổ giấy' : 'Khổ A4'; toResult();
+    });
+    const ocrBtn = btn('ss-act' + (st.ocr ? ' on' : ''), SVG_OCR, st.ocr ? 'OCR: Bật' : 'OCR: Tắt', () => {
+      setPref('ocr', !st.ocr); ocrBtn.classList.toggle('on', st.ocr); ocrBtn.lastChild.textContent = st.ocr ? 'OCR: Bật' : 'OCR: Tắt';
+    }, { title: 'Thêm lớp chữ ẩn để tìm kiếm và sao chép chữ trong PDF (mất thêm vài giây mỗi trang)' });
+    bottom.replaceChildren(
+      el('div', { class: 'ss-bar' }, btn('ss-act', SVG_PLUS, 'Thêm ảnh', addMore), sizeBtn, ocrBtn),
+      el('button', { type: 'button', class: 'ss-save', onclick: finish }, svgIcon(SVG_SAVE), el('span', { text: `Lưu thành PDF (${st.pages.length} trang)` })));
   }
   function finish() {
     if (st.busy) return;
@@ -2183,27 +2315,49 @@ async function openScanStudio() {
     run();
   }
 
+  /* ===== thêm ảnh khi cửa sổ đang mở ===== */
+  const api = {
+    addPages(newItems) {
+      const fresh = newItems.filter(it => !st.pages.some(p => p.it === it));
+      if (!fresh.length) return;
+      const startIdx = st.pages.length;
+      fresh.forEach(it => st.pages.push(mkPage(it)));
+      st.tok++; pageCv = null; freeCur(); freeBase();
+      stage.className = 'ss-stage'; stage.replaceChildren(busyEl, loupe);
+      st.queue = fresh.map((_, k) => startIdx + k); st.qpos = 0;
+      loadCrop(st.queue[0]);
+    },
+  };
+  scanStudio = api;
+
   function close() {
     if (!st.alive) return;
     st.alive = false; st.tok++;
+    syncQ();
     freeBase(); freeCur();
+    st.pages.forEach(p => { if (p.thumb) freeCanvas(p.thumb); });
     try { logoBmp && logoBmp.close && logoBmp.close(); } catch (e) { /* */ }
     window.removeEventListener('resize', onResize); document.removeEventListener('keydown', onKey, true);
     root.remove(); document.body.classList.remove('ss-open');
-    // ghi nhớ khung đã chỉnh để mở lại không phải làm lại
-    st.pages.forEach(p => { if (p.q) p.it.scan = { rot: p.rot, q: p.q }; });
+    st.pages.forEach(p => { if (p.q) p.it.scan = { rot: p.rot, q: p.q }; });   // nhớ khung đã chỉnh để mở lại không phải làm lại
+    if (scanStudio === api) scanStudio = null;
   }
-  const onResize = () => { if (st.phase === 'crop') fit(); else if (pageCv) fitPage(pageCv); };
+  const onResize = () => { if (st.phase === 'crop') fit(); else if (st.phase === 'enhance' && pageCv) fitPage(pageCv); };
   const onKey = e => {
     if (e.key !== 'Escape') return;
     if (document.activeElement === nameInput) { nameInput.blur(); return; }
     e.preventDefault(); e.stopPropagation();
-    if (st.phase === 'preview') backToCrop(); else close();
+    if (st.phase === 'result') { st.tok++; showEnhance(); } else if (st.phase === 'enhance') backToCrop(); else close();
   };
   window.addEventListener('resize', onResize); document.addEventListener('keydown', onKey, true);
   stage.append(busyEl, loupe);
-  await loadCrop(0);
+
+  // chọn bước đầu: ảnh chưa có khung cắt đi qua bước cắt trước; nếu tất cả đã cắt thì vào thẳng danh sách kết quả
+  const fresh = (newItems && newItems.length ? st.pages.filter(p => newItems.includes(p.it)) : st.pages.filter(p => !p.q));
+  if (fresh.length) { st.queue = fresh.map(p => st.pages.indexOf(p)); st.qpos = 0; await loadCrop(st.queue[0]); }
+  else { st.idx = 0; await toResult(); }
 }
+
 async function samplePhotoFile() {
   const bytes = await samplePdfBytes(23, 'D');
   const src = await openPdfJs(bytes.buffer, 'mẫu');
@@ -2882,9 +3036,9 @@ const TOOLS = [
   },
   {
     id: 'scan', short: 'Scan', group: 'Scan & nhận dạng chữ', name: 'Scan tài liệu', conv: 'Ảnh chụp → PDF scan',
-    desc: 'Chụp giấy tờ bằng điện thoại (hoặc chọn ảnh có sẵn), rồi bấm "Cắt và xem trước": app tự tìm 4 góc tờ giấy để bạn chỉnh khung, chọn màu (màu gốc, làm sáng, trắng đen), xem trước từng trang và lưu thành file PDF như bản scan.',
-    note: ['Đặt giấy trên nền tối hơn giấy để tự tìm góc chính xác. Ở bước cắt có thể kéo 4 góc và 4 điểm giữa cạnh, xoay ảnh hoặc bấm "Cả ảnh" để không cắt.', 'Ở bước xem trước có sẵn tuỳ chọn chữ ký "Scan by Minh Leonard" (mặc định bật), khổ trang, lớp chữ tìm kiếm (OCR) và tên file.'],
-    exts: ['jpg', 'jpeg', 'png', 'webp', 'bmp'], multiple: true, studio: true, action: 'Cắt và xem trước',
+    desc: 'Chụp ảnh, chọn từ thư viện hoặc chọn tệp: app tự mở màn hình cắt và tìm 4 góc tờ giấy, rồi tự quét cho sáng, rõ chữ, bỏ đổ bóng. Bạn chọn kiểu màu, xem kết quả, thêm ảnh và lưu thành một file PDF.',
+    note: ['Đặt giấy trên nền tối hơn giấy để tự tìm góc chính xác. Ở bước cắt có thể kéo 4 góc và 4 điểm giữa cạnh, xoay ảnh hoặc bấm "Cả ảnh" để không cắt.', 'Bước quét có 7 kiểu màu: Màu gốc, Làm sáng, Rõ nét, Trắng đen, Bỏ bóng, Tiết kiệm mực, Xám; có nút xoay trái và bật/tắt chữ ký "Scan by Minh Leonard" (mặc định bật, góc dưới bên phải).'],
+    exts: ['jpg', 'jpeg', 'png', 'webp', 'bmp'], multiple: true, studio: true, action: 'Mở màn hình scan',
     opts: [],
     sample: async () => [await samplePhotoFile()],
     async run(items, o, ui) {
@@ -2930,8 +3084,8 @@ const TOOLS = [
         const page = pdf.addPage([pw, ph]);
         page.drawImage(img, { x: ix, y: iy, width: dw, height: dh });
         if (logoImg) {
-          const lw = clamp(pw * 0.25, 92, 180), lh = lw * logo.h / logo.w;
-          page.drawImage(logoImg, { x: pw - lw - 12, y: 10, width: lw, height: lh, opacity: 0.95 });
+          const b = stampBox(pw, ph, logo);
+          page.drawImage(logoImg, { x: b.x, y: b.y, width: b.lw, height: b.lh, opacity: 0.95 });
         }
         if (o.ocr) {
           const data = await ocrCanvas(c, p => ui.sub(`${label} · nhận dạng chữ`, 0.4 + 0.6 * p));
@@ -3149,6 +3303,7 @@ function addFiles(list) {
   showError(null);
   renderFiles();
   for (const it of wrapped) loadMeta(it);
+  if (tool.studio) openScanStudio(wrapped);
 }
 async function loadMeta(it) {
   try {
