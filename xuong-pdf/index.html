@@ -119,6 +119,15 @@ body.ss-open{overflow:hidden}
 .ss-busy{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(19,16,16,.62);font-size:14px;color:#f3efef;z-index:3;text-align:center;padding:0 24px}
 .ss-loupe{position:absolute;width:112px;height:112px;border-radius:50%;border:3px solid #ff5a50;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.5);pointer-events:none;display:none;overflow:hidden;z-index:2}
 .ss-loupe canvas{display:block;width:100%;height:100%;cursor:default}
+.ss-dlg{position:absolute;inset:0;z-index:20;background:rgba(10,7,7,.7);display:flex;align-items:center;justify-content:center;padding:16px}
+.ss-dbox{width:100%;max-width:420px;background:#1f1919;border:1px solid #3a3030;border-radius:14px;padding:18px 18px 14px;-webkit-user-select:text;user-select:text}
+.ss-dbox h3{margin:0 0 12px;font-size:18px;font-weight:600}
+.ss-dbox label{display:block;font-size:13px;color:#a99f9f;margin-bottom:2px}
+.ss-drow{display:flex;align-items:baseline;gap:6px;margin-bottom:16px}
+.ss-drow span{color:#a99f9f;font-size:16px}
+.ss-dbtn{display:flex;gap:10px;justify-content:flex-end}
+.ss-dbtn button{min-width:92px;height:44px;border:0;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;background:#2a2323;color:#f3efef}
+.ss-dbtn .ss-dyes{background:#C62828;color:#fff}
 .ss-fe{font-size:10.5px;color:#8f8585;font-weight:400}
 .ss-filter.on .ss-fe{color:#ffb4ae}
 .ss-result{align-items:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -1903,6 +1912,7 @@ function composePage(img, size, logoBmp, logo, longSide) {
   return c;
 }
 
+let scanSource = null;          // nguồn ảnh đã chọn: cam | lib | file (để "Thêm ảnh" dùng lại đúng nguồn)
 let scanStudio = null;          // cửa sổ Scan đang mở (để "Thêm ảnh" đưa ảnh mới vào cùng một bản scan)
 async function openScanStudio(newItems) {
   if (scanStudio) { if (newItems && newItems.length) scanStudio.addPages(newItems); return; }
@@ -2289,13 +2299,13 @@ async function openScanStudio(newItems) {
   }
   function addMore() {
     if (st.busy) return;
-    if (IS_ANDROID) askImageSource(); else $('#libInput').click();
+    const id = { cam: '#camInput', lib: '#libInput', file: '#fileInput' }[scanSource];   // dùng đúng nguồn đã chọn lúc đầu
+    if (id) $(id).click(); else if (IS_ANDROID) askImageSource(); else $('#fileInput').click();
   }
   function renderResultChrome() {
-    nameInput = el('input', { class: 'ss-name', type: 'text', value: st.name, placeholder: defName(), 'aria-label': 'Tên file', autocomplete: 'off', spellcheck: 'false', oninput: e => { st.name = e.target.value; } });
     head.replaceChildren(
       btn('ss-ib', SVG_BACK, null, () => { if (!st.busy) { st.tok++; st.idx = Math.min(st.idx, st.pages.length - 1); showEnhance(); } }, { 'aria-label': 'Quay lại chọn màu' }),
-      nameInput);
+      el('div', { class: 'ss-title' }, 'Kết quả', el('small', { text: `${st.pages.length} trang` })));
     const sizeBtn = btn('ss-act', SVG_PAGE, st.size === 'fit' ? 'Khổ giấy' : 'Khổ A4', () => {
       setPref('size', st.size === 'a4' ? 'fit' : 'a4'); sizeBtn.lastChild.textContent = st.size === 'fit' ? 'Khổ giấy' : 'Khổ A4'; toResult();
     });
@@ -2306,11 +2316,31 @@ async function openScanStudio(newItems) {
       el('div', { class: 'ss-bar' }, btn('ss-act', SVG_PLUS, 'Thêm ảnh', addMore), sizeBtn, ocrBtn),
       el('button', { type: 'button', class: 'ss-save', onclick: finish }, svgIcon(SVG_SAVE), el('span', { text: `Lưu thành PDF (${st.pages.length} trang)` })));
   }
-  function finish() {
-    if (st.busy) return;
+  let dlgClose = null;
+  function askName(def) {                              // hộp nhập tên file, bước cuối trước khi lưu
+    return new Promise(resolve => {
+      const input = el('input', { class: 'ss-name', type: 'text', value: def, 'aria-label': 'Tên file', autocomplete: 'off', spellcheck: 'false' });
+      const done = v => { dlg.remove(); dlgClose = null; resolve(v); };
+      const ok = () => done(input.value.trim().replace(/\.pdf$/i, '') || def);
+      const dlg = el('div', { class: 'ss-dlg', onclick: e => { if (e.target === dlg) done(null); } },
+        el('div', { class: 'ss-dbox', role: 'dialog', 'aria-label': 'Tên file PDF' },
+          el('h3', { text: 'Lưu thành file PDF' }),
+          el('label', { text: 'Tên file (có thể sửa)' }),
+          el('div', { class: 'ss-drow' }, input, el('span', { text: '.pdf' })),
+          el('div', { class: 'ss-dbtn' },
+            el('button', { type: 'button', class: 'ss-dno', onclick: () => done(null), text: 'Huỷ' }),
+            el('button', { type: 'button', class: 'ss-dyes', onclick: ok, text: 'Lưu' }))));
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ok(); } });
+      root.append(dlg); dlgClose = () => done(null);
+      setTimeout(() => { input.focus(); input.select(); }, 30);
+    });
+  }
+  async function finish() {
+    if (st.busy || dlgClose) return;
+    const name = await askName(defName());
+    if (name === null || !st.alive) return;
     st.pages.forEach(p => { p.it.scan = { rot: p.rot, q: p.q }; });
-    const name = (nameInput && nameInput.value.trim()) || '';
-    tool.studioOpts = { mode: st.mode, size: st.size, stamp: st.stamp, ocr: st.ocr, name };
+    tool.studioOpts = { mode: st.mode, size: st.size, stamp: st.stamp, ocr: st.ocr, name, autoSave: true };
     close();
     run();
   }
@@ -2345,8 +2375,8 @@ async function openScanStudio(newItems) {
   const onResize = () => { if (st.phase === 'crop') fit(); else if (st.phase === 'enhance' && pageCv) fitPage(pageCv); };
   const onKey = e => {
     if (e.key !== 'Escape') return;
-    if (document.activeElement === nameInput) { nameInput.blur(); return; }
     e.preventDefault(); e.stopPropagation();
+    if (dlgClose) { dlgClose(); return; }
     if (st.phase === 'result') { st.tok++; showEnhance(); } else if (st.phase === 'enhance') backToCrop(); else close();
   };
   window.addEventListener('resize', onResize); document.addEventListener('keydown', onKey, true);
@@ -3504,6 +3534,7 @@ async function run() {
     results = res.files;
     const secs = Math.max(1, Math.round((performance.now() - t0) / 1000));
     renderResults(`${res.info || ''} Mất ${secs} giây.`.trim());
+    if (o.autoSave) for (const f of results) await saveBlob(f.name, f.blob);   // Scan: xong là lưu luôn, không thêm bước
     setTimeout(() => { $('#progress').hidden = true; }, 600);
     $('#results').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' });
   } catch (e) {
@@ -3794,14 +3825,14 @@ function init() {
   buildRail();
   const drop = $('#drop');
   const input = $('#fileInput');
-  input.addEventListener('change', () => { addFiles(input.files); input.value = ''; });
+  input.addEventListener('change', () => { scanSource = 'file'; addFiles(input.files); input.value = ''; });
   ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
-  drop.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files); });
+  drop.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files) { scanSource = 'file'; addFiles(e.dataTransfer.files); } });
   window.addEventListener('dragover', e => e.preventDefault());
   window.addEventListener('drop', e => e.preventDefault());
-  $('#camInput').addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
-  $('#libInput').addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
+  $('#camInput').addEventListener('change', e => { scanSource = 'cam'; addFiles(e.target.files); e.target.value = ''; });
+  $('#libInput').addEventListener('change', e => { scanSource = 'lib'; addFiles(e.target.files); e.target.value = ''; });
   // Android: hỏi chụp ảnh, thư viện hay chọn tệp (giống iPhone) khi bấm ô thêm ảnh
   drop.addEventListener('click', e => {
     if (IS_ANDROID && tool && !tool.desktopOnly && (tool.exts || []).includes('jpg')) { e.preventDefault(); askImageSource(); }
