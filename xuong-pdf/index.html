@@ -210,6 +210,34 @@ h1{font-size:26px;line-height:1.2;margin:0;letter-spacing:-.015em;text-wrap:bala
 .credit{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;justify-content:center;color:var(--ink-3);font-size:13px}
 .credit .sig{font-family:"Dancing Script","Segoe Script","Brush Script MT",cursive;font-weight:600;font-size:26px;line-height:1;color:var(--accent);letter-spacing:.01em}
 .brand-by{font-family:"Dancing Script","Segoe Script","Brush Script MT",cursive;font-weight:600;font-size:17px;color:var(--accent);margin-left:6px;white-space:nowrap}
+
+.rrow{cursor:pointer;transition:background .12s}
+.rrow:hover{background:var(--accent-soft)}
+.rrow:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rhint{color:var(--accent);font-family:var(--f-ui)}
+body.pv-open{overflow:hidden}
+.pv-backdrop{position:fixed;inset:0;z-index:40;background:rgba(24,18,18,.55);display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.pv-dialog{background:var(--sheet);border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,.28);width:min(980px,100%);height:min(92vh,100%);display:flex;flex-direction:column;overflow:hidden}
+.pv-head{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}
+.pv-title{display:flex;gap:10px;align-items:center;min-width:0}
+.pv-name{min-width:0}
+.pv-actions{display:flex;gap:8px;align-items:center;flex:none}
+.pv-save{height:38px;padding:0 16px;font-size:14px}
+.pv-body{flex:1;min-height:0;overflow:auto;background:var(--sunk);padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.pv-page{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.16);width:100%;max-width:820px;flex:none}
+.pv-page canvas,.pv-page img{display:block;width:100%;height:auto}
+.pv-img{display:block;max-width:100%;height:auto;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.16)}
+.pv-label{font-family:var(--f-mono);font-size:11.5px;color:var(--ink-3);margin-bottom:6px;flex:none}
+.pv-status{color:var(--ink-2);padding:32px 0;text-align:center}
+.pv-tabs{display:flex;gap:6px;flex-wrap:wrap;align-self:stretch;flex:none}
+.pv-tab{border:1px solid var(--line-2);background:var(--sheet);border-radius:999px;padding:4px 12px;font-size:13px;cursor:pointer}
+.pv-tab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.pv-table{overflow:auto;align-self:stretch;background:#fff;border:1px solid var(--line);flex:1 1 auto;min-height:120px}
+.pv-table table{border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums;color:#1E1A1A}
+.pv-table td,.pv-table th{border:1px solid #E6E0E0;padding:4px 8px;white-space:nowrap;text-align:left;max-width:26ch;overflow:hidden;text-overflow:ellipsis}
+.pv-note{font-size:12.5px;color:var(--ink-3);align-self:stretch;flex:none}
+.pv-docx{align-self:stretch;overflow:visible}
+@media (max-width:640px){.pv-backdrop{padding:0}.pv-dialog{border-radius:0;width:100%;height:100%;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}.pv-body{padding:10px}.pv-save{padding:0 12px}.pv-head{padding:10px 12px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
 .head-actions{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:flex-end}
@@ -2271,13 +2299,13 @@ function renderResults(info) {
   const shown = results.slice(0, 200);
   for (const r of shown) {
     const ext = extOf(r.name);
-    const main = el('div', { style: 'min-width:0' }, el('div', { class: 'rname', text: r.name }), el('div', { class: 'rmeta', text: fmtSize(r.blob.size) }));
+    const main = el('div', { style: 'min-width:0' }, el('div', { class: 'rname', text: r.name }), el('div', { class: 'rmeta' }, fmtSize(r.blob.size), el('span', { class: 'rhint', text: ' · bấm để xem trước' })));
     if (r.thumb) main.append(el('img', { class: 'rprev', src: URL.createObjectURL(r.thumb), alt: `Trang đầu của ${r.name}` }));
     if (r.preview && shown.length <= 40) { const url = URL.createObjectURL(r.blob); main.append(el('img', { class: 'rprev', src: url, alt: `Xem trước ${r.name}` })); }
     const btns = el('div', { class: 'rbtns' }, el('button', { type: 'button', class: 'secondary', onclick: () => saveBlob(r.name, r.blob) }, 'Lưu'));
     const asFile = new File([r.blob], r.name, { type: r.blob.type || 'application/octet-stream' });
     if (canShareFile(asFile)) btns.append(el('button', { type: 'button', class: 'ghost', onclick: () => shareFile(asFile) }, 'Gửi'));
-    ul.append(el('li', { class: 'rrow' }, el('span', { class: `ext ${ext}`, text: ext.toUpperCase() }), main, btns));
+    ul.append(el('li', { class: 'rrow', tabindex: '0', title: 'Bấm để xem trước', 'aria-label': `Xem trước ${r.name}`, onclick: e => { if (!e.target.closest('button')) openPreview(r); }, onkeydown: e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); openPreview(r); } } }, el('span', { class: `ext ${ext}`, text: ext.toUpperCase() }), main, btns));
   }
   if (results.length > shown.length) ul.append(el('li', { class: 'rinfo', text: `Còn ${results.length - shown.length} file nữa, dùng nút Lưu tất cả (.zip).` }));
 }
@@ -2425,6 +2453,176 @@ function setupAppShell() {
     $('#reloadBtn').addEventListener('click', () => { if (running) { toast('Đợi xử lý xong rồi tải lại'); return; } location.reload(); });
   }
   readShareInbox();
+}
+
+
+/* ---------- xem trước kết quả ---------- */
+let pv = null;
+function closePreview() {
+  if (!pv) return;
+  const s = pv; pv = null;
+  s.alive = false;
+  try { s.observer && s.observer.disconnect(); } catch (e) { /* */ }
+  try { s.doc && s.doc.destroy(); } catch (e) { /* */ }
+  s.urls.forEach(u => URL.revokeObjectURL(u));
+  s.wrap.remove();
+  document.body.classList.remove('pv-open');
+  document.removeEventListener('keydown', s.onKey, true);
+  try { s.prevFocus && s.prevFocus.focus(); } catch (e) { /* */ }
+}
+async function openPreview(r) {
+  closePreview();
+  const ext = extOf(r.name);
+  const body = el('div', { class: 'pv-body' });
+  const status = el('div', { class: 'pv-status', text: 'Đang mở bản xem trước…' });
+  body.append(status);
+  const meta = el('div', { class: 'rmeta', text: fmtSize(r.blob.size) });
+  const actions = el('div', { class: 'pv-actions' }, el('button', { type: 'button', class: 'primary pv-save', onclick: () => saveBlob(r.name, r.blob) }, 'Lưu file'));
+  if (typeof canShareFile === 'function') {
+    const asFile = new File([r.blob], r.name, { type: r.blob.type || 'application/octet-stream' });
+    if (canShareFile(asFile)) actions.append(el('button', { type: 'button', class: 'ghost', onclick: () => shareFile(asFile) }, 'Gửi'));
+  }
+  const closeBtn = el('button', { type: 'button', class: 'ibtn', 'aria-label': 'Đóng xem trước', title: 'Đóng (Esc)', onclick: closePreview }, '×');
+  actions.append(closeBtn);
+  const head = el('div', { class: 'pv-head' },
+    el('div', { class: 'pv-title' }, el('span', { class: `ext ${ext}`, text: ext.toUpperCase() }), el('div', { class: 'pv-name' }, el('div', { class: 'rname', text: r.name }), meta)),
+    actions);
+  const dlg = el('div', { class: 'pv-dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Xem trước ${r.name}` }, head, body);
+  const wrap = el('div', { class: 'pv-backdrop' }, dlg);
+  wrap.addEventListener('click', e => { if (e.target === wrap) closePreview(); });
+  const state = { wrap, body, meta, urls: [], doc: null, observer: null, alive: true, prevFocus: document.activeElement };
+  state.onKey = e => {
+    if (e.key === 'Escape') { e.preventDefault(); closePreview(); return; }
+    if (e.key === 'Tab') {
+      const f = [...dlg.querySelectorAll('button, [tabindex="0"]')].filter(x => !x.disabled);
+      if (!f.length) return;
+      const i = f.indexOf(document.activeElement);
+      if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
+      else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); }
+    }
+  };
+  document.addEventListener('keydown', state.onKey, true);
+  pv = state;
+  document.body.append(wrap);
+  document.body.classList.add('pv-open');
+  closeBtn.focus();
+  try {
+    if (ext === 'pdf') await pvPdf(r, state);
+    else if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) pvImage(r, state);
+    else if (ext === 'docx') await pvDocx(r, state);
+    else if (['xlsx', 'xls', 'csv'].includes(ext)) await pvSheet(r, state);
+    else if (ext === 'pptx') await pvPptx(r, state);
+    else if (ext === 'zip') await pvZip(r, state);
+    else throw new UserError('Loại file này chưa xem trước được, bấm Lưu file để mở bằng ứng dụng trên máy.');
+    status.remove();
+  } catch (e) {
+    if (!state.alive) return;
+    status.textContent = e instanceof UserError ? e.message : 'Không mở được bản xem trước. File vẫn lưu được bình thường.';
+  }
+}
+function pvImage(r, s) {
+  const url = URL.createObjectURL(r.blob); s.urls.push(url);
+  s.body.append(el('img', { class: 'pv-img', src: url, alt: `Xem trước ${r.name}` }));
+}
+async function pvPdf(r, s) {
+  const doc = await openPdfJs(await r.blob.arrayBuffer(), r.name);
+  if (!s.alive) { doc.destroy(); return; }
+  s.doc = doc;
+  s.meta.textContent = `${fmtSize(r.blob.size)} · ${doc.numPages} trang`;
+  const first = (await doc.getPage(1)).getViewport({ scale: 1 });
+  const pages = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const box = el('div', { class: 'pv-page', 'data-p': i, style: `aspect-ratio:${(first.width / first.height).toFixed(4)}` });
+    s.body.append(box, el('div', { class: 'pv-label', text: `Trang ${i}/${doc.numPages}` }));
+    pages.push(box);
+  }
+  const draw = async box => {
+    if (box.dataset.done) return;
+    box.dataset.done = '1';
+    try {
+      const page = await doc.getPage(+box.dataset.p);
+      if (!s.alive) return;
+      const v = page.getViewport({ scale: 1 });
+      box.style.aspectRatio = (v.width / v.height).toFixed(4);
+      const cssW = Math.min(box.clientWidth || 800, 820);
+      const dpi = clamp(cssW * (window.devicePixelRatio || 1) / v.width * 72, 60, 220);
+      const { canvas } = await renderPage(page, dpi, 8e6);
+      if (s.alive) box.append(canvas); else freeCanvas(canvas);
+    } catch (e) { box.dataset.done = ''; }
+  };
+  s.observer = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { s.observer.unobserve(e.target); draw(e.target); } }), { root: s.body, rootMargin: '600px 0px' });
+  pages.forEach(p => s.observer.observe(p));
+}
+async function pvDocx(r, s) {
+  await need('docxPreview');
+  const host = el('div', { class: 'pv-docx' }), styles = el('div');
+  s.body.append(styles, host);
+  await window.docx.renderAsync(await r.blob.arrayBuffer(), host, styles, {
+    className: 'pvdocx', inWrapper: true, ignoreWidth: false, ignoreHeight: false, breakPages: true,
+    ignoreLastRenderedPageBreak: false, renderHeaders: true, renderFooters: true, useBase64URL: true, experimental: true,
+  });
+  const wrapEl = host.querySelector('.pvdocx-wrapper') || host;
+  wrapEl.style.background = 'transparent'; wrapEl.style.padding = '0';
+  const sec = host.querySelector('section.pvdocx');
+  const fit = () => { if (!sec) return; const avail = s.body.clientWidth - 24; const w = sec.offsetWidth; wrapEl.style.zoom = w > avail ? (avail / w).toFixed(3) : ''; };
+  fit();
+  s.body.append(el('div', { class: 'pv-note', text: 'Bản xem trước có thể lệch chút về phông và ngắt trang so với khi mở bằng Word.' }));
+}
+async function pvSheet(r, s) {
+  await need('xlsx');
+  const XLSX = window.XLSX;
+  const wb = XLSX.read(await r.blob.arrayBuffer(), { type: 'array', cellNF: true });
+  const LIMIT = 300;
+  const tabs = el('div', { class: 'pv-tabs', role: 'tablist' });
+  const note = el('div', { class: 'pv-note' });
+  const table = el('div', { class: 'pv-table' });
+  const show = name => {
+    tabs.querySelectorAll('.pv-tab').forEach(t => t.setAttribute('aria-selected', t.dataset.n === name ? 'true' : 'false'));
+    const ws = wb.Sheets[name];
+    if (!ws || !ws['!ref']) { table.textContent = ''; note.textContent = 'Sheet trống.'; return; }
+    const rg = XLSX.utils.decode_range(ws['!ref']);
+    const rows = rg.e.r - rg.s.r + 1;
+    const view = { ...ws };
+    if (rows > LIMIT) view['!ref'] = XLSX.utils.encode_range({ s: rg.s, e: { r: rg.s.r + LIMIT - 1, c: rg.e.c } });
+    table.innerHTML = XLSX.utils.sheet_to_html(view, { header: '', footer: '' });
+    table.querySelectorAll('td').forEach(td => { if (td.textContent.length > 24) td.title = td.textContent; });
+    note.textContent = rows > LIMIT ? `Đang hiện ${LIMIT}/${rows} dòng đầu. File lưu về có đủ ${rows} dòng.` : `${rows} dòng · ${rg.e.c - rg.s.c + 1} cột`;
+  };
+  wb.SheetNames.forEach(n => tabs.append(el('button', { type: 'button', class: 'pv-tab', role: 'tab', 'data-n': n, onclick: () => show(n) }, n)));
+  if (wb.SheetNames.length > 1) s.body.append(tabs);
+  s.body.append(note, table);
+  s.meta.textContent = `${fmtSize(r.blob.size)} · ${wb.SheetNames.length} sheet`;
+  show(wb.SheetNames[0]);
+}
+async function pvPptx(r, s) {
+  await need('jszip');
+  const zip = await window.JSZip.loadAsync(r.blob);
+  const slides = Object.keys(zip.files).filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n))
+    .sort((a, b) => +a.match(/(\d+)\.xml$/)[1] - +b.match(/(\d+)\.xml$/)[1]);
+  if (!slides.length) throw new UserError('File PowerPoint không có slide nào.');
+  s.meta.textContent = `${fmtSize(r.blob.size)} · ${slides.length} slide`;
+  for (let i = 0; i < slides.length; i++) {
+    if (!s.alive) return;
+    const rels = zip.file(slides[i].replace('slides/', 'slides/_rels/') + '.rels');
+    let media = null;
+    if (rels) {
+      const m = (await rels.async('string')).match(/Target="\.\.\/media\/([^"]+)"/);
+      if (m) media = zip.file('ppt/media/' + m[1]);
+    }
+    const box = el('div', { class: 'pv-page' });
+    if (media) {
+      const url = URL.createObjectURL(await media.async('blob')); s.urls.push(url);
+      box.append(el('img', { src: url, alt: `Slide ${i + 1}` }));
+    } else box.append(el('div', { class: 'pv-status', text: 'Slide không có hình để xem trước' }));
+    s.body.append(box, el('div', { class: 'pv-label', text: `Slide ${i + 1}/${slides.length}` }));
+  }
+}
+async function pvZip(r, s) {
+  await need('jszip');
+  const zip = await window.JSZip.loadAsync(r.blob);
+  const names = Object.keys(zip.files).filter(n => !zip.files[n].dir);
+  s.meta.textContent = `${fmtSize(r.blob.size)} · ${names.length} file`;
+  s.body.append(el('div', { class: 'pv-note', text: 'Các file trong gói:' }), el('ul', { class: 'pv-note' }, names.slice(0, 500).map(n => el('li', { text: n }))));
 }
 
 /* ---------- wiring ---------- */
