@@ -161,10 +161,6 @@ body.ss-open{overflow:hidden}
 .conv{font-family:var(--f-mono);font-size:12.5px;color:var(--accent);font-weight:500;letter-spacing:.02em}
 h1{font-size:26px;line-height:1.2;margin:0;letter-spacing:-.015em;text-wrap:balance}
 .lead{margin:0;color:var(--ink-2);max-width:62ch}
-.note{background:var(--warn-soft);border-radius:10px;padding:12px 14px;font-size:13.5px;color:var(--ink);display:flex;flex-direction:column;gap:4px}
-.note b{color:var(--warn);font-weight:600}
-.note ul{margin:0;padding-left:18px}
-.note[hidden]{display:none}
 
 .drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;border:1.5px dashed var(--line-2);background:var(--sunk);border-radius:12px;padding:28px 16px;cursor:pointer;transition:border-color .15s,background .15s}
 .drop:hover{border-color:var(--accent)}
@@ -280,14 +276,6 @@ h1{font-size:26px;line-height:1.2;margin:0;letter-spacing:-.015em;text-wrap:bala
 .desk-panel h3{margin:0;font-size:15px}
 .desk-panel p{margin:0;color:var(--ink-2);max-width:65ch}
 
-.compare{border-top:1px solid var(--line);padding-top:16px;font-size:13.5px;color:var(--ink-2)}
-.compare summary{cursor:pointer;color:var(--ink);font-weight:500}
-.tablewrap{overflow-x:auto;margin-top:10px}
-.compare table{border-collapse:collapse;width:100%;min-width:520px;font-size:13px}
-.compare th,.compare td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
-.compare th{color:var(--ink);font-weight:600}
-.lvl{font-family:var(--f-mono);font-size:12px}
-.lvl.good{color:var(--ok)} .lvl.mid{color:var(--warn)} .lvl.no{color:var(--bad)}
 
 .savedbar{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%) translateY(24px);z-index:2147483000;display:flex;align-items:center;gap:10px;background:var(--ink);color:var(--paper);padding:10px 10px 10px 16px;border-radius:12px;font-size:14px;max-width:calc(100% - 24px);width:max-content;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;box-shadow:0 6px 24px rgba(0,0,0,.28)}
 .savedbar.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
@@ -399,7 +387,6 @@ body.pv-open{overflow:hidden}
         <h1 id="tName"></h1>
         <p class="lead" id="tDesc"></p>
       </div>
-      <div class="note" id="tNote" hidden></div>
 
       <div id="workArea">
         <label class="drop" id="drop" for="fileInput">
@@ -443,23 +430,6 @@ body.pv-open{overflow:hidden}
         <ul class="rlist" id="rList"></ul>
       </section>
 
-      <details class="compare">
-        <summary>Bản web và bản máy tính khác nhau thế nào</summary>
-        <div class="tablewrap">
-          <table>
-            <thead><tr><th>Việc cần làm</th><th>Bản web (trang này)</th><th>Bản máy tính (Python)</th></tr></thead>
-            <tbody>
-              <tr><td>Ghép, tách PDF</td><td class="lvl good">Tốt</td><td class="lvl good">Tốt, mở được file khoá chỉnh sửa</td></tr>
-              <tr><td>PDF sang Word</td><td class="lvl mid">Lấy chữ và đoạn văn, mất bảng và hình</td><td class="lvl good">Giữ bố cục, bảng, hình</td></tr>
-              <tr><td>PDF sang Excel</td><td class="lvl mid">Bảng thẳng hàng đơn giản</td><td class="lvl good">Nhận bảng có kẻ khung tốt hơn</td></tr>
-              <tr><td>PDF sang PowerPoint, ảnh</td><td class="lvl good">Tốt (mỗi trang là một ảnh)</td><td class="lvl good">Tốt</td></tr>
-              <tr><td>Word, Excel sang PDF</td><td class="lvl mid">Chụp lại trang, chữ không chọn được</td><td class="lvl good">Chuẩn như in từ Office</td></tr>
-              <tr><td>PowerPoint sang PDF</td><td class="lvl no">Không có</td><td class="lvl good">Có</td></tr>
-              <tr><td>Nhận dạng chữ (OCR)</td><td class="lvl mid">Có, chậm với file nhiều trang</td><td class="lvl good">Nhanh hơn, xử lý hàng loạt</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </details>
     </main>
   </div>
   <footer class="credit"><span>Scan - PDF · thiết kế bởi</span><span class="sig">Minh Leonard</span></footer>
@@ -3051,7 +3021,6 @@ const TOOLS = [
   {
     id: 'pdf2word', short: 'PDF → Word', group: 'Từ PDF', name: 'PDF sang Word', conv: 'PDF → DOCX',
     desc: 'Chuyển PDF thành file Word sửa được, giữ đoạn văn, căn lề, chữ đậm và cỡ chữ. PDF scan được nhận dạng chữ tự động.',
-    note: ['Bảng biểu chuyển thành dòng chữ cách bằng tab, hình ảnh không được lấy. Cần giữ bố cục đầy đủ thì dùng bản máy tính.', 'Chọn "Giữ nguyên hình thức" nếu chỉ cần mở bằng Word mà không sửa chữ.'],
     exts: ['pdf'], multiple: false, action: 'Chuyển sang Word',
     opts: [
       { id: 'mode', label: 'Kiểu chuyển', type: 'select', value: 'text', choices: [['text', 'Văn bản sửa được'], ['image', 'Giữ nguyên hình thức (mỗi trang là ảnh)']] },
@@ -3124,7 +3093,6 @@ const TOOLS = [
   {
     id: 'pdf2excel', short: 'PDF → Excel', group: 'Từ PDF', name: 'PDF sang Excel', conv: 'PDF → XLSX',
     desc: 'Đọc bảng số liệu trong PDF ra Excel. Số kiểu 1.234,5 được đổi thành số thật, mã có số 0 đầu được giữ nguyên.',
-    note: ['Hợp với bảng thẳng hàng xuất từ phần mềm (bảng kê, báo cáo). Bảng có ô gộp phức tạp có thể bị lệch cột, nên kiểm tra lại.'],
     exts: ['pdf'], multiple: false, action: 'Chuyển sang Excel',
     opts: [
       { id: 'layout', label: 'Cách xếp sheet', type: 'select', value: 'one', choices: [['one', 'Tất cả trang vào 1 sheet'], ['page', 'Mỗi trang một sheet']] },
@@ -3185,7 +3153,6 @@ const TOOLS = [
   {
     id: 'pdf2ppt', short: 'PDF → PPT', group: 'Từ PDF', name: 'PDF sang PowerPoint', conv: 'PDF → PPTX',
     desc: 'Mỗi trang PDF thành một slide, giữ nguyên hình thức để trình chiếu. Chữ của trang được chép vào phần ghi chú của slide.',
-    note: ['Nội dung slide là ảnh, không sửa chữ trực tiếp được.'],
     exts: ['pdf'], multiple: false, action: 'Chuyển sang PowerPoint',
     opts: [
       { id: 'dpi', label: 'Độ nét', type: 'select', value: '150', choices: [['110', 'Vừa (file nhẹ)'], ['150', 'Nét (khuyên dùng)'], ['220', 'Rất nét (file nặng)']] },
@@ -3405,14 +3372,6 @@ function selectTool(id, skipHash) {
   $('#tConv').textContent = tool.conv;
   $('#tName').textContent = tool.name;
   $('#tDesc').textContent = tool.desc;
-  const note = $('#tNote');
-  note.innerHTML = '';
-  if (tool.note && tool.note.length) {
-    note.append(el('b', { text: 'Cần biết' }));
-    if (tool.note.length === 1) note.append(el('span', { text: tool.note[0] }));
-    else note.append(el('ul', {}, tool.note.map(n => el('li', { text: n }))));
-    note.hidden = false;
-  } else note.hidden = true;
   items = []; results = []; extraState = {};
   const work = $('#workArea');
   const desk = tool.desktopOnly;
