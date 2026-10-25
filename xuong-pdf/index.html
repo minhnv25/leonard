@@ -1,0 +1,2477 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Xưởng PDF</title>
+<meta name="description" content="Ghép, tách, chuyển đổi PDF, scan giấy tờ và nhận dạng chữ tiếng Việt ngay trên máy, không tải file lên mạng.">
+<meta name="theme-color" content="#0A6B63" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1417" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Xưởng PDF">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Xưởng PDF">
+<meta property="og:description" content="Ghép, tách, chuyển đổi PDF, scan giấy tờ và nhận dạng chữ tiếng Việt ngay trên máy, không tải file lên mạng.">
+<meta property="og:image" content="icon-512.png">
+<link rel="stylesheet" href="fonts.css">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>
+/* Layout: a rail of tools grouped by job on the left, one working sheet on the right; the rail turns into a scrolling chip row on phones */
+:root{
+  --paper:#F2F4F1; --sheet:#FFFFFF; --sunk:#EDF0EC; --ink:#17202A; --ink-2:#536069; --ink-3:#7A868F;
+  --line:#D8DED6; --line-2:#C2CAC0;
+  --accent:#0A6B63; --accent-hover:#08574F; --accent-ink:#FFFFFF; --accent-soft:#DCEEEA;
+  --warn:#7E4D00; --warn-soft:#FAF0DA; --bad:#B3261E; --bad-soft:#FBE8E6; --ok:#1C7A3E;
+  --c-pdf:#C8372D; --c-doc:#2B5FB4; --c-xls:#1D7A44; --c-ppt:#C25418; --c-img:#7357B0;
+  --shadow:0 1px 2px rgba(23,32,42,.06), 0 6px 24px rgba(23,32,42,.05);
+  --f-ui:"Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0E1417; --sheet:#151D21; --sunk:#1A2428; --ink:#E2E8EB; --ink-2:#A2AEB5; --ink-3:#7D8A92;
+    --line:#253137; --line-2:#334249;
+    --accent:#45B3A6; --accent-hover:#5EC6B9; --accent-ink:#04211E; --accent-soft:#12302D;
+    --warn:#E3B25E; --warn-soft:#2A2416; --bad:#F08A80; --bad-soft:#331B19; --ok:#6BCB89;
+    --c-pdf:#D9483D; --c-doc:#3F78D0; --c-xls:#2A9A5B; --c-ppt:#D8682C; --c-img:#8B6FD0;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.25);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0E1417; --sheet:#151D21; --sunk:#1A2428; --ink:#E2E8EB; --ink-2:#A2AEB5; --ink-3:#7D8A92;
+  --line:#253137; --line-2:#334249;
+  --accent:#45B3A6; --accent-hover:#5EC6B9; --accent-ink:#04211E; --accent-soft:#12302D;
+  --warn:#E3B25E; --warn-soft:#2A2416; --bad:#F08A80; --bad-soft:#331B19; --ok:#6BCB89;
+    --c-pdf:#D9483D; --c-doc:#3F78D0; --c-xls:#2A9A5B; --c-ppt:#D8682C; --c-img:#8B6FD0;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.25);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-ui);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.shell{max-width:1180px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 56px}
+
+/* masthead */
+.masthead{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.brand{display:flex;gap:12px;align-items:center;min-width:0}
+.mark{width:30px;height:38px;flex:none;position:relative;background:var(--accent);border-radius:3px 9px 3px 3px;clip-path:polygon(0 0,70% 0,100% 24%,100% 100%,0 100%)}
+.mark::after{content:"";position:absolute;right:0;top:0;width:30%;height:24%;background:var(--accent-hover);border-bottom-left-radius:3px}
+.mark::before{content:"";position:absolute;left:6px;right:8px;top:15px;height:2px;background:var(--accent-ink);box-shadow:0 6px 0 var(--accent-ink),0 12px 0 var(--accent-ink);opacity:.85}
+.brand-name{font-weight:700;font-size:20px;letter-spacing:-.01em;line-height:1.15}
+.brand-sub{color:var(--ink-2);font-size:13.5px}
+.privacy{font-size:13px;color:var(--ink-2);display:flex;align-items:center;gap:8px}
+.privacy::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}
+
+/* layout */
+.layout{display:grid;grid-template-columns:248px minmax(0,1fr);gap:28px;margin-top:22px;align-items:start}
+.rail{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 16px);display:flex;flex-direction:column;gap:16px}
+.group{display:flex;flex-direction:column;gap:6px}
+.group-label{font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding:0 4px}
+.tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.tool{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;text-align:center;background:none;border:1px solid transparent;border-radius:10px;padding:10px 4px 9px;cursor:pointer;color:var(--ink);position:relative}
+.tool:hover{background:var(--sunk)}
+.tool[aria-current="true"]{background:var(--accent-soft);border-color:var(--accent)}
+.tool[aria-current="true"] .tool-name{color:var(--accent);font-weight:600}
+.tool svg{width:36px;height:36px;color:var(--ink-2);flex:none;display:block}
+.tool[aria-current="true"] svg{color:var(--accent)}
+.tool-name{font-size:12.5px;font-weight:500;line-height:1.25;overflow-wrap:anywhere}
+.tool .desk{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--warn)}
+.rail-note{font-size:12px;color:var(--ink-3);display:flex;gap:6px;align-items:center;padding:0 4px}
+.rail-note::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--warn);flex:none}
+.cam-row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:-6px}
+.cam-row[hidden]{display:none}
+.fthumb{width:38px;height:50px;object-fit:cover;border-radius:4px;border:1px solid var(--line);background:#fff;flex:none}
+.fwrap{display:flex;gap:10px;align-items:center;min-width:0}
+
+/* sheet */
+.sheet{background:var(--sheet);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:26px 28px 30px;display:flex;flex-direction:column;gap:20px;min-width:0}
+.tool-head{display:flex;flex-direction:column;gap:6px}
+.conv{font-family:var(--f-mono);font-size:12.5px;color:var(--accent);font-weight:500;letter-spacing:.02em}
+h1{font-size:26px;line-height:1.2;margin:0;letter-spacing:-.015em;text-wrap:balance}
+.lead{margin:0;color:var(--ink-2);max-width:62ch}
+.note{background:var(--warn-soft);border-radius:10px;padding:12px 14px;font-size:13.5px;color:var(--ink);display:flex;flex-direction:column;gap:4px}
+.note b{color:var(--warn);font-weight:600}
+.note ul{margin:0;padding-left:18px}
+.note[hidden]{display:none}
+
+.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;border:1.5px dashed var(--line-2);background:var(--sunk);border-radius:12px;padding:28px 16px;cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover{border-color:var(--accent)}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop-doc{width:34px;height:42px;border:2px solid var(--ink-3);border-radius:3px 10px 3px 3px;margin-bottom:8px;position:relative}
+.drop-doc::after{content:"+";position:absolute;inset:0;display:grid;place-items:center;font-weight:600;font-size:20px;color:var(--ink-3)}
+.drop strong{font-weight:600}
+.drop .muted{color:var(--ink-2);font-size:13.5px}
+.drop .exts{font-family:var(--f-mono);font-size:12px;color:var(--ink-3);margin-top:6px}
+.sample-row{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:13.5px;color:var(--ink-2);margin-top:-8px}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);font-weight:500;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.linkbtn:hover{color:var(--accent-hover)}
+
+.files{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.files:empty{display:none}
+.frow{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;border-top:1px solid var(--line)}
+.frow:first-child{border-top:0}
+.fidx{font-family:var(--f-mono);font-size:12px;color:var(--ink-3);text-align:right}
+.fmain{min-width:0;display:flex;flex-direction:column;gap:2px}
+.fname{font-weight:500;overflow-wrap:anywhere;line-height:1.35}
+.fmeta{font-family:var(--f-mono);font-size:12px;color:var(--ink-3)}
+.fmeta .err{color:var(--bad)}
+.frange{display:flex;align-items:center;gap:8px;margin-top:4px;font-size:12.5px;color:var(--ink-2)}
+.frange input{width:150px;height:30px;padding:0 8px;border:1px solid var(--line-2);border-radius:6px;background:var(--sheet);font-size:13px}
+.fctl{display:flex;gap:4px}
+.ibtn{width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--line);border-radius:7px;background:var(--sheet);cursor:pointer;font-size:15px;line-height:1;color:var(--ink-2)}
+.ibtn:hover:not(:disabled){border-color:var(--line-2);color:var(--ink)}
+.ibtn:disabled{opacity:.35;cursor:default}
+
+.extra:empty{display:none}
+.extra h3,.opts-title{font-size:13px;font-weight:600;margin:0 0 8px;color:var(--ink-2);letter-spacing:.01em}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:10px;max-height:420px;overflow:auto;padding:2px}
+.thumb{display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:0;padding:0;cursor:pointer;color:var(--ink-2)}
+.thumb .pg{width:100%;aspect-ratio:var(--ar,0.707);max-width:100%;background:var(--sunk);border:1px solid var(--line);border-radius:4px;overflow:hidden;display:grid;place-items:center;position:relative}
+.thumb canvas{width:100%;height:100%;display:block;object-fit:contain;background:#fff}
+.thumb .num{font-family:var(--f-mono);font-size:11.5px}
+.thumb[aria-pressed="true"] .pg{outline:2.5px solid var(--accent);outline-offset:1px}
+.thumb[aria-pressed="true"] .num{color:var(--accent);font-weight:600}
+.sheetpick{display:flex;flex-wrap:wrap;gap:8px 18px}
+
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px 18px;margin:0;padding:0;border:0}
+.opts:empty{display:none}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field[hidden]{display:none}
+.field > span{font-size:13px;font-weight:500;color:var(--ink-2)}
+.field small{font-size:12px;color:var(--ink-3);line-height:1.4}
+.field select,.field input[type=text],.field input[type=number]{height:40px;padding:0 10px;border:1px solid var(--line-2);border-radius:8px;background:var(--sheet);width:100%;min-width:0}
+.check{flex-direction:row;align-items:flex-start;gap:9px;padding-top:4px}
+.check input{width:18px;height:18px;margin:2px 0 0;accent-color:var(--accent);flex:none}
+.check > span{font-weight:400;color:var(--ink)}
+
+.actions{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+.primary{height:46px;padding:0 22px;border:0;border-radius:9px;background:var(--accent);color:var(--accent-ink);font-weight:600;cursor:pointer;font-size:15px}
+.primary:hover:not(:disabled){background:var(--accent-hover)}
+.primary:disabled{opacity:.45;cursor:not-allowed}
+.secondary{height:38px;padding:0 14px;border:1px solid var(--accent);border-radius:8px;background:transparent;color:var(--accent);font-weight:500;cursor:pointer;font-size:14px}
+.secondary:hover{background:var(--accent-soft)}
+.ghost{height:38px;padding:0 14px;border:1px solid var(--line-2);border-radius:8px;background:transparent;color:var(--ink-2);cursor:pointer;font-size:14px}
+.hint{font-size:13px;color:var(--ink-3)}
+
+.progress{display:flex;flex-direction:column;gap:8px}
+.progress[hidden]{display:none}
+.bar{height:6px;background:var(--sunk);border-radius:6px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);border-radius:6px;transition:width .25s ease}
+.ptext{font-size:13.5px;color:var(--ink-2);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ptext .pct{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+.error{background:var(--bad-soft);color:var(--ink);border-radius:10px;padding:12px 14px;font-size:14px}
+.error b{color:var(--bad)}
+.error[hidden]{display:none}
+
+.results{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:18px}
+.results[hidden]{display:none}
+.results-head{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between}
+.results h2{font-size:16px;margin:0}
+.rlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.rrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 12px;background:var(--sunk);border-radius:10px}
+.ext{font-family:var(--f-mono);font-size:11px;font-weight:500;letter-spacing:.04em;padding:4px 6px;border-radius:5px;background:var(--sheet);border:1px solid var(--line-2);color:var(--ink-2);min-width:44px;text-align:center}
+.ext.pdf{color:var(--c-pdf);border-color:currentColor}
+.ext.docx{color:var(--c-doc);border-color:currentColor}
+.ext.xlsx{color:var(--c-xls);border-color:currentColor}
+.ext.pptx{color:var(--c-ppt);border-color:currentColor}
+.ext.zip,.ext.png,.ext.jpg{color:var(--ink-2)}
+.rname{font-weight:500;overflow-wrap:anywhere;line-height:1.35}
+.rmeta{font-family:var(--f-mono);font-size:12px;color:var(--ink-3)}
+.rprev{display:block;max-height:64px;max-width:100%;margin-top:6px;border:1px solid var(--line);border-radius:3px;background:#fff}
+.rinfo{font-size:13px;color:var(--ink-2)}
+
+.desk-panel{background:var(--sunk);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px}
+.desk-panel h3{margin:0;font-size:15px}
+.desk-panel p{margin:0;color:var(--ink-2);max-width:65ch}
+
+.compare{border-top:1px solid var(--line);padding-top:16px;font-size:13.5px;color:var(--ink-2)}
+.compare summary{cursor:pointer;color:var(--ink);font-weight:500}
+.tablewrap{overflow-x:auto;margin-top:10px}
+.compare table{border-collapse:collapse;width:100%;min-width:520px;font-size:13px}
+.compare th,.compare td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.compare th{color:var(--ink);font-weight:600}
+.lvl{font-family:var(--f-mono);font-size:12px}
+.lvl.good{color:var(--ok)} .lvl.mid{color:var(--warn)} .lvl.no{color:var(--bad)}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:9px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;max-width:calc(100% - 32px)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#stage{position:absolute;left:-40000px;top:0;background:#fff;color:#000}
+
+@media (max-width:860px){
+  .layout{grid-template-columns:minmax(0,1fr);gap:16px;margin-top:16px}
+  .rail{position:static;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+  .group,.tools{display:contents}
+  .group-label{display:none}
+  .rail-note{grid-column:1 / -1}
+  .tool{background:var(--sheet);border-color:var(--line);padding:9px 2px 8px}
+  .tool svg{width:32px;height:32px}
+  .tool-name{font-size:11.5px}
+  .sheet{padding:20px 16px 24px;border-radius:12px}
+  h1{font-size:22px}
+}
+@media (max-width:480px){
+  .frow{grid-template-columns:22px minmax(0,1fr)}
+  .fctl{grid-column:2}
+  .rrow{grid-template-columns:minmax(0,1fr) auto}
+  .rrow .ext{display:none}
+  .primary{width:100%}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+.head-actions{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:flex-end}
+.app-actions{display:flex;flex-wrap:wrap;gap:8px}
+.net{font-size:12.5px;color:var(--warn);background:var(--warn-soft);border-radius:999px;padding:3px 10px}
+.install-help{margin-top:14px;background:var(--sheet);border:1px solid var(--line);border-radius:12px;padding:16px 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px 22px}
+.install-help h3{margin:0 0 6px;font-size:14px}
+.install-help ol{margin:0;padding-left:18px;color:var(--ink-2);font-size:13.5px}
+.install-help .offline{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;border-top:1px solid var(--line);padding-top:12px;font-size:13.5px;color:var(--ink-2)}
+.rbtns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+@media (max-width:640px){.head-actions{justify-content:flex-start}}
+.update-bar{position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top, 0px));z-index:20;background:var(--ink);color:var(--paper);border-radius:10px;padding:8px 10px 8px 14px;display:flex;gap:12px;align-items:center;font-size:14px;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
+.update-bar button{background:var(--accent);color:var(--accent-ink);border:0;border-radius:7px;padding:6px 12px;font-weight:600;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="masthead">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <div>
+        <div class="brand-name">Xưởng PDF</div>
+        <div class="brand-sub">Ghép, tách và chuyển đổi tài liệu văn phòng</div>
+      </div>
+    </div>
+    <div class="head-actions">
+      <span class="net" id="netBadge" hidden>Đang mất mạng · các công cụ đã tải vẫn dùng được</span>
+      <div class="privacy">File xử lý ngay trên máy, không tải lên mạng</div>
+      <div class="app-actions">
+        <button type="button" class="secondary" id="installBtn">Cài ra màn hình</button>
+        <button type="button" class="ghost" id="shareAppBtn">Chia sẻ ứng dụng</button>
+      </div>
+    </div>
+  </header>
+  <section class="install-help" id="installHelp" hidden aria-label="Cách cài ứng dụng">
+    <div><h3>iPhone, iPad (Safari)</h3><ol><li>Bấm nút Chia sẻ (ô vuông có mũi tên lên)</li><li>Chọn "Thêm vào MH chính"</li><li>Bấm "Thêm"</li></ol></div>
+    <div><h3>Điện thoại Android (Chrome)</h3><ol><li>Bấm nút ⋮ góc trên bên phải</li><li>Chọn "Cài đặt ứng dụng" hoặc "Thêm vào màn hình chính"</li></ol></div>
+    <div><h3>Máy tính (Chrome, Edge)</h3><ol><li>Bấm biểu tượng cài đặt ở cuối thanh địa chỉ</li><li>Chọn "Cài đặt"</li></ol></div>
+    <div class="offline"><button type="button" class="secondary" id="offlineBtn">Tải sẵn để dùng khi mất mạng</button><span id="offlineText">Khoảng 13 MB, gồm cả bộ nhận dạng chữ tiếng Việt.</span></div>
+  </section>
+
+  <div class="layout">
+    <nav class="rail" id="rail" aria-label="Công cụ"></nav>
+
+    <main class="sheet" id="sheet">
+      <div class="tool-head">
+        <div class="conv" id="tConv"></div>
+        <h1 id="tName"></h1>
+        <p class="lead" id="tDesc"></p>
+      </div>
+      <div class="note" id="tNote" hidden></div>
+
+      <div id="workArea">
+        <label class="drop" id="drop" for="fileInput">
+          <span class="drop-doc" aria-hidden="true"></span>
+          <strong id="dropTitle">Kéo thả file vào đây</strong>
+          <span class="muted">hoặc bấm để chọn từ máy</span>
+          <span class="exts" id="dropExts"></span>
+          <input type="file" id="fileInput" hidden>
+        </label>
+      </div>
+      <div class="cam-row" id="camRow" hidden>
+        <button type="button" class="secondary" id="camBtn">Chụp bằng camera</button>
+        <span class="hint">Chụp từng trang; bấm lại để thêm trang tiếp theo.</span>
+        <input type="file" id="camInput" accept="image/*" capture="environment" hidden>
+      </div>
+      <div class="sample-row" id="sampleRow">
+        <span>Chưa có file trong tay?</span>
+        <button type="button" class="linkbtn" id="sampleBtn">Dùng file mẫu để thử</button>
+      </div>
+
+      <ul class="files" id="fileList"></ul>
+      <div class="extra" id="extra"></div>
+      <fieldset class="opts" id="opts"></fieldset>
+
+      <div class="actions" id="actions">
+        <button type="button" class="primary" id="runBtn" disabled>Bắt đầu</button>
+        <button type="button" class="ghost" id="stopBtn" hidden>Dừng</button>
+        <span class="hint" id="runHint">Thêm file để bắt đầu</span>
+      </div>
+
+      <div class="progress" id="progress" hidden>
+        <div class="bar"><i id="barFill"></i></div>
+        <div class="ptext"><span id="pText">Đang chuẩn bị</span><span class="pct" id="pPct">0%</span></div>
+      </div>
+      <div class="error" id="errorBox" hidden></div>
+
+      <section class="results" id="results" hidden>
+        <div class="results-head">
+          <h2>Kết quả</h2>
+          <button type="button" class="secondary" id="zipBtn" hidden>Lưu tất cả (.zip)</button>
+        </div>
+        <div class="rinfo" id="rInfo"></div>
+        <ul class="rlist" id="rList"></ul>
+      </section>
+
+      <details class="compare">
+        <summary>Bản web và bản máy tính khác nhau thế nào</summary>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Việc cần làm</th><th>Bản web (trang này)</th><th>Bản máy tính (Python)</th></tr></thead>
+            <tbody>
+              <tr><td>Ghép, tách PDF</td><td class="lvl good">Tốt</td><td class="lvl good">Tốt, mở được file khoá chỉnh sửa</td></tr>
+              <tr><td>PDF sang Word</td><td class="lvl mid">Lấy chữ và đoạn văn, mất bảng và hình</td><td class="lvl good">Giữ bố cục, bảng, hình</td></tr>
+              <tr><td>PDF sang Excel</td><td class="lvl mid">Bảng thẳng hàng đơn giản</td><td class="lvl good">Nhận bảng có kẻ khung tốt hơn</td></tr>
+              <tr><td>PDF sang PowerPoint, ảnh</td><td class="lvl good">Tốt (mỗi trang là một ảnh)</td><td class="lvl good">Tốt</td></tr>
+              <tr><td>Word, Excel sang PDF</td><td class="lvl mid">Chụp lại trang, chữ không chọn được</td><td class="lvl good">Chuẩn như in từ Office</td></tr>
+              <tr><td>PowerPoint sang PDF</td><td class="lvl no">Không có</td><td class="lvl good">Có</td></tr>
+              <tr><td>Nhận dạng chữ (OCR)</td><td class="lvl mid">Có, chậm với file nhiều trang</td><td class="lvl good">Nhanh hơn, xử lý hàng loạt</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div>
+<div id="stage" aria-hidden="true"></div>
+<div class="update-bar" id="updateBar" hidden role="status"><span>Đã có bản mới của Xưởng PDF.</span><button type="button" id="reloadBtn">Tải lại</button></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- libraries, loaded only when a tool needs them ---------- */
+const CDN = {
+  pdflib: 'pdf-lib.min.js',
+  pdfjs: 'pdf.min.js',
+  pdfjsWorker: 'pdf.worker.min.js',
+  fontkit: 'fontkit.umd.min.js',
+  jszip: 'jszip.min.js',
+  xlsx: 'xlsx.full.min.js',
+  pptx: 'pptxgen.bundle.js',
+  docxPreview: 'docx-preview.min.js',
+  h2c: 'html2canvas.min.js',
+  tess: 'tesseract.min.js',
+};
+const ASSET = {
+  font: ['Tinos-Regular.ttf'],
+  fontBold: ['Tinos-Bold.ttf'],
+};
+
+class UserError extends Error {}
+class Cancelled extends Error {}
+
+const scripts = {};
+function loadScript(url) {
+  if (!scripts[url]) {
+    scripts[url] = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = url;
+      s.onload = () => resolve();
+      s.onerror = () => { delete scripts[url]; reject(new UserError('Không tải được thư viện xử lý. Kiểm tra kết nối mạng rồi thử lại.')); };
+      document.head.appendChild(s);
+    });
+  }
+  return scripts[url];
+}
+async function need(...names) {
+  for (const n of names) {
+    if (n === 'pdfjs') {
+      await loadScript(CDN.pdfjs);
+      await loadScript(CDN.pdfjsWorker);
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = CDN.pdfjsWorker;
+    } else if (n === 'docxPreview') {
+      await loadScript(CDN.jszip);
+      await loadScript(CDN.docxPreview);
+    } else {
+      await loadScript(CDN[n]);
+    }
+  }
+}
+async function fetchAsset(pair) {
+  for (const url of pair) {
+    try {
+      const r = await fetch(url);
+      if (r.ok) return new Uint8Array(await r.arrayBuffer());
+    } catch (e) { /* try next */ }
+  }
+  throw new UserError('Không tải được phông chữ tiếng Việt cần cho thao tác này.');
+}
+
+/* ---------- small helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const el = (tag, attrs = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') n.className = v;
+    else if (k === 'text') n.textContent = v;
+    else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v === true ? '' : v);
+  }
+  for (const k of kids.flat()) if (k != null) n.append(k.nodeType ? k : document.createTextNode(k));
+  return n;
+};
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmtSize = b => b < 1024 ? b + ' B' : b < 1048576 ? Math.round(b / 1024) + ' KB' : (b / 1048576).toFixed(1).replace('.', ',') + ' MB';
+const baseName = n => n.replace(/\.[^.]+$/, '');
+const extOf = n => (n.match(/\.([^.]+)$/) || [, ''])[1].toLowerCase();
+const safeName = s => (s || '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '_').replace(/\s+/g, ' ').trim().slice(0, 120) || 'tai_lieu';
+const percentile = (arr, p) => { if (!arr.length) return 0; const a = arr.slice().sort((x, y) => x - y); return a[Math.min(a.length - 1, Math.max(0, Math.floor(p * (a.length - 1))))]; };
+const canvasBlob = (c, type = 'image/jpeg', q = 0.9) => new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new UserError('Trình duyệt không xuất được ảnh (trang quá lớn).')), type, q));
+const blobBytes = async b => new Uint8Array(await b.arrayBuffer());
+const blobDataUrl = b => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => rej(fr.error); fr.readAsDataURL(b); });
+const freeCanvas = c => { if (c) { c.width = 0; c.height = 0; } };
+
+function parseSpec(str, n) {
+  const s = (str || '').trim();
+  if (!s) return null;
+  const chk = p => { if (p < 1 || p > n) throw new UserError(`Trang ${p} không có trong file (file có ${n} trang).`); };
+  const groups = [];
+  for (const tok of s.split(/[,;]+/)) {
+    const t = tok.replace(/\s+/g, '');
+    if (!t) continue;
+    let m;
+    if ((m = t.match(/^(\d+)$/))) { const p = +m[1]; chk(p); groups.push([p - 1]); }
+    else if ((m = t.match(/^(\d+)?[-–](\d+)?$/)) && (m[1] || m[2])) {
+      const a = m[1] ? +m[1] : 1, b = m[2] ? +m[2] : n;
+      chk(a); chk(b);
+      const g = [];
+      if (a <= b) for (let p = a; p <= b; p++) g.push(p - 1); else for (let p = a; p >= b; p--) g.push(p - 1);
+      groups.push(g);
+    } else throw new UserError(`Không hiểu "${tok.trim()}". Ghi số trang kiểu 1-3, 5, 8-10.`);
+  }
+  if (!groups.length) return null;
+  return groups;
+}
+const pageList = (str, n) => { const g = parseSpec(str, n); return g ? g.flat() : Array.from({ length: n }, (_, i) => i); };
+const groupLabel = g => g.length === 1 ? `${g[0] + 1}` : `${g[0] + 1}-${g[g.length - 1] + 1}`;
+
+/* ---------- saving files ---------- */
+const downloadsP = (window.claude && typeof window.claude.use === 'function')
+  ? window.claude.use('downloads').catch(() => null)
+  : Promise.resolve(null);
+const framed = (() => { try { return window.top !== window; } catch (e) { return true; } })();
+
+function anchorSave(name, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = el('a', { href: url, download: name });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+async function saveBlob(name, blob) {
+  const dl = await downloadsP;
+  if (dl) {
+    try {
+      await dl.save({ filename: name, data: blob });
+      toast(`Đã lưu ${name}`);
+    } catch (e) {
+      const c = e && e.code;
+      if (c === 'declined') toast('Đã huỷ lưu file');
+      else if (c === 'rate_limited') toast('Đang có hộp thoại lưu khác, chờ giây lát rồi bấm lại');
+      else if (c === 'too_large') toast('File quá lớn để lưu tại đây, hãy chia nhỏ rồi thử lại');
+      else if (c === 'rejected_extension' || c === 'extension_not_enabled') toast('Định dạng này không được phép lưu ở đây');
+      else toast('Không lưu được file ở chế độ xem này');
+    }
+    return;
+  }
+  anchorSave(name, blob);
+  if (framed) toast('Nếu không thấy file tải về, hãy mở trang trực tiếp trên claude.ai');
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+/* ---------- PDF reading ---------- */
+async function openPdfJs(buf, name = 'File') {
+  await need('pdfjs');
+  const task = window.pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)), isEvalSupported: false, useSystemFonts: true });
+  try { return await task.promise; }
+  catch (e) {
+    if (e && e.name === 'PasswordException') throw new UserError(`"${name}" có mật khẩu mở. Bản web chưa mở được loại file này, hãy dùng bản máy tính.`);
+    throw new UserError(`Không đọc được "${name}". File có thể bị hỏng hoặc không phải PDF.`);
+  }
+}
+async function openPdfLib(buf, name = 'File') {
+  await need('pdflib');
+  try { return await window.PDFLib.PDFDocument.load(buf, { updateMetadata: false }); }
+  catch (e) {
+    if (/encrypt/i.test(String(e && e.message))) throw new UserError(`"${name}" đang bị khoá (mật khẩu hoặc chặn chỉnh sửa). Bản web không xử lý được loại file này, hãy dùng bản máy tính.`);
+    throw new UserError(`Không đọc được "${name}". File có thể bị hỏng hoặc không phải PDF.`);
+  }
+}
+async function renderPage(page, dpi, maxPixels = 14e6) {
+  const v1 = page.getViewport({ scale: 1 });
+  let scale = dpi / 72;
+  if (v1.width * v1.height * scale * scale > maxPixels) scale = Math.sqrt(maxPixels / (v1.width * v1.height));
+  const vp = page.getViewport({ scale });
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.floor(vp.width));
+  c.height = Math.max(1, Math.floor(vp.height));
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, c.width, c.height);
+  await page.render({ canvasContext: ctx, viewport: vp }).promise;
+  return { canvas: c, scale, vp };
+}
+function mapFamily(s) {
+  if (/times|tnr|roman|vntime|serif/i.test(s)) return 'Times New Roman';
+  if (/arial|helvetica|sans/i.test(s)) return 'Arial';
+  if (/calibri/i.test(s)) return 'Calibri';
+  if (/cambria/i.test(s)) return 'Cambria';
+  if (/tahoma/i.test(s)) return 'Tahoma';
+  if (/verdana/i.test(s)) return 'Verdana';
+  if (/courier|mono/i.test(s)) return 'Courier New';
+  return null;
+}
+async function pdfItems(page) {
+  const vp = page.getViewport({ scale: 1 });
+  const tc = await page.getTextContent();
+  try { await page.getOperatorList(); } catch (e) { /* font names are a bonus */ }
+  const info = {};
+  for (const fn of Object.keys(tc.styles)) {
+    let nm = '', b = false, it = false;
+    try { const fo = page.commonObjs.get(fn); nm = (fo && fo.name) || ''; b = !!(fo && fo.bold); it = !!(fo && fo.italic); } catch (e) { /* not resolved */ }
+    const fam = tc.styles[fn].fontFamily || '';
+    info[fn] = { bold: b || /bold|black|heavy|semibold|demi/i.test(nm), italic: it || /italic|oblique/i.test(nm), family: mapFamily(nm + ' ' + fam) };
+  }
+  const items = [];
+  for (const it of tc.items) {
+    let str = (it.str || '').replace(/[\u0000-\u0008\u000B-\u001F\u007F​﻿]/g, '');
+    if (!str.trim()) continue;
+    const [a, b, c, d, e, f] = it.transform;
+    const size = Math.hypot(c, d) || Math.hypot(a, b) || 10;
+    let [x, y] = vp.convertToViewportPoint(e, f);
+    let w = it.width || str.length * size * 0.5;
+    // Trim spaces at the ends so that x/width describe the visible text only.
+    const charW = w / Math.max(1, str.length);
+    const lead = str.length - str.replace(/^\s+/, '').length;
+    const trail = str.length - str.replace(/\s+$/, '').length;
+    if (lead || trail) { x += lead * charW; w -= (lead + trail) * charW; str = str.trim(); }
+    const fi = info[it.fontName] || {};
+    const base = { y, size, bold: !!fi.bold, italic: !!fi.italic, family: fi.family || null };
+    if (/\s{2,}/.test(str)) {
+      // Reports often pad columns with spaces inside one text run: split them back into cells.
+      const cw = w / Math.max(1, str.length);
+      const re = /\S+(?:\s\S+)*/g;
+      let m;
+      while ((m = re.exec(str))) items.push({ ...base, str: m[0], x: x + m.index * cw, w: Math.max(m[0].length * cw, 0.5) });
+    } else items.push({ ...base, str, x, w: Math.max(w, 0.5) });
+  }
+  return { items, width: vp.width, height: vp.height };
+}
+const charCount = items => items.reduce((s, i) => s + i.str.replace(/\s/g, '').length, 0);
+
+/* ---------- OCR (tesseract, Vietnamese) ---------- */
+let ocrWorker = null, ocrInit = null, ocrListener = null;
+async function getOcr(ui) {
+  if (ocrWorker) return ocrWorker;
+  if (!ocrInit) {
+    ocrInit = (async () => {
+      await need('tess');
+      const base = new URL('./', location.href);
+      const w = await window.Tesseract.createWorker('vie', 1, {
+        workerPath: new URL('worker.min.js', base).href,
+        corePath: new URL('', base).href,
+        langPath: new URL('.', base).href,
+        cacheMethod: 'none',
+        logger: m => ocrListener && ocrListener(m),
+      });
+      // tesseract.js defaults to one text block (PSM 6), which skips tables; 3 = automatic page layout.
+      await w.setParameters({ tessedit_pageseg_mode: '3', preserve_interword_spaces: '1' });
+      return w;
+    })();
+  }
+  ui && ui.step('Đang khởi động bộ nhận dạng chữ tiếng Việt (lần đầu mất 10–30 giây)', null);
+  try { ocrWorker = await ocrInit; }
+  catch (e) { ocrInit = null; throw new UserError('Không khởi động được bộ nhận dạng chữ trong trình duyệt này. Hãy thử Chrome hoặc Edge bản mới, hoặc dùng bản máy tính.'); }
+  return ocrWorker;
+}
+async function ocrCanvas(canvas, onProg) {
+  const w = await getOcr();
+  ocrListener = m => { if (m.status === 'recognizing text' && onProg) onProg(m.progress || 0); };
+  try {
+    const { data } = await w.recognize(canvas, {}, { text: true, blocks: true, hocr: false, tsv: false });
+    return data;
+  } finally { ocrListener = null; }
+}
+// Table borders often come back as | ! [ ] characters: drop them.
+const cleanOcrWord = t => (t || '').trim().replace(/^[|¦\[\]{}]+(?=\S)|(?<=\S)[|¦\[\]{}]+$/g, '').replace(/^[|¦!\[\](){}_]+$/, '');
+function ocrToItems(data, scale) {
+  const items = [];
+  const allLines = [];
+  for (const b of data.blocks || []) for (const p of b.paragraphs || []) for (const l of p.lines || []) allLines.push(l);
+  // OCR line boxes vary with accents and descenders; snap near-median heights so font size stays steady.
+  const med = percentile(allLines.map(l => l.bbox.y1 - l.bbox.y0), 0.5);
+  for (const l of allLines) {
+    let lh = (l.bbox.y1 - l.bbox.y0) / scale;
+    if (med && Math.abs(lh * scale - med) < med * 0.4) lh = med / scale;
+    const size = clamp(lh * 0.72, 5, 48);
+    const base = l.bbox.y1 / scale - lh * 0.18;
+    for (const w of l.words || []) {
+      const t = cleanOcrWord(w.text);
+      if (!t || (w.confidence != null && w.confidence < 20 && t.length < 2)) continue;
+      items.push({ str: t, x: w.bbox.x0 / scale, y: base, w: (w.bbox.x1 - w.bbox.x0) / scale, size, bold: false, italic: false, family: null, ocr: true });
+    }
+  }
+  return items;
+}
+async function pageItemsWithOcr(page, mode, dpi, ui, label) {
+  let res = await pdfItems(page);
+  let usedOcr = false;
+  if (mode === 'always' || (mode === 'auto' && charCount(res.items) < 15)) {
+    await getOcr(ui);
+    ui.check();
+    const r = await renderPage(page, dpi);
+    const data = await ocrCanvas(r.canvas, p => ui.sub(`${label} · nhận dạng chữ`, p));
+    freeCanvas(r.canvas);
+    res = { items: ocrToItems(data, r.scale), width: res.width, height: res.height };
+    usedOcr = true;
+  }
+  return { ...res, usedOcr };
+}
+
+/* ---------- text layout: items -> lines -> paragraphs / table rows ---------- */
+function groupLines(items) {
+  const its = items.slice().sort((a, b) => a.y - b.y || a.x - b.x);
+  const lines = [];
+  for (const it of its) {
+    let target = null;
+    for (let k = lines.length - 1; k >= 0 && k >= lines.length - 4; k--) {
+      const L = lines[k];
+      if (Math.abs(L.y - it.y) <= Math.min(L.size, it.size) * 0.45 + 0.5) { target = L; break; }
+    }
+    if (target) target.items.push(it); else lines.push({ y: it.y, size: it.size, items: [it] });
+  }
+  for (const L of lines) {
+    L.items.sort((a, b) => a.x - b.x);
+    L.x = L.items[0].x;
+    L.right = Math.max(...L.items.map(i => i.x + i.w));
+    const cnt = {};
+    for (const i of L.items) { const k = Math.round(i.size * 2) / 2; cnt[k] = (cnt[k] || 0) + i.str.length; }
+    L.size = +Object.entries(cnt).sort((a, b) => b[1] - a[1])[0][0];
+  }
+  return lines.sort((a, b) => a.y - b.y);
+}
+function sameStyle(a, b) { return a && b && !a.tab && !b.tab && a.bold === b.bold && a.italic === b.italic && Math.abs(a.size - b.size) < 0.6 && a.font === b.font; }
+function lineSegs(L, origin) {
+  const segs = [], tabs = [];
+  let prev = null;
+  for (const it of L.items) {
+    let text = it.str;
+    if (prev) {
+      const gap = it.x - (prev.x + prev.w);
+      const sz = Math.max(it.size, prev.size);
+      if (gap > sz * 2.2) { segs.push({ tab: true }); tabs.push(it.x - origin); }
+      else if (gap > sz * 0.2 && !/\s$/.test(prev.str) && !/^\s/.test(text)) text = ' ' + text;
+    }
+    const seg = { text, bold: it.bold, italic: it.italic, size: Math.round(it.size * 2) / 2, font: it.family };
+    const last = segs[segs.length - 1];
+    if (sameStyle(last, seg)) last.text += text; else segs.push(seg);
+    prev = it;
+  }
+  return { segs, tabs };
+}
+const segText = segs => segs.filter(s => !s.tab).map(s => s.text).join('');
+function buildParagraphs(lines, left, right) {
+  const width = Math.max(1, right - left);
+  const paras = [];
+  let cur = null, prev = null;
+  for (const L of lines) {
+    const { segs, tabs } = lineSegs(L, left);
+    if (!segs.length) continue;
+    const indentL = L.x - left, gapR = right - L.right, sz = L.size;
+    let align = 'left';
+    if (indentL > sz * 1.2 && Math.abs(indentL - gapR) < Math.max(sz * 1.6, width * 0.05) && L.right - L.x < width * 0.92) align = 'center';
+    else if (gapR < sz * 0.9 && indentL > width * 0.35) align = 'right';
+    const hasTab = tabs.length > 0;
+    const listStart = /^\s*([-–—•▪●+*]|\d{1,2}[.)]|[a-zđ][.)]|[IVX]{1,4}\.)\s/i.test(segText(segs).slice(0, 8));
+    let newPara = !cur || align !== 'left' || cur.align !== 'left' || hasTab || cur.hasTab || Math.abs(sz - prev.size) > 0.8;
+    if (!newPara) {
+      const gap = L.y - prev.y;
+      if (gap > Math.max(prev.size, sz) * 1.9) newPara = true;
+      else if (prev.right < right - sz * 3) newPara = true;
+      else if (indentL > sz * 0.9 && L.x - prev.x > sz * 0.9) newPara = true;
+      else if (listStart) newPara = true;
+    }
+    if (newPara) {
+      cur = { align, lines: [L], segs: segs.map(s => ({ ...s })), tabs, hasTab, gapBefore: prev ? (L.y - prev.y) - prev.size * 1.25 : 0, firstX: L.x, minX: L.x };
+      paras.push(cur);
+    } else {
+      const last = cur.segs[cur.segs.length - 1];
+      if (last && !last.tab && !/\s$/.test(last.text)) last.text += ' ';
+      for (const s of segs) {
+        const l = cur.segs[cur.segs.length - 1];
+        if (sameStyle(l, s)) l.text += s.text; else cur.segs.push({ ...s });
+      }
+      cur.lines.push(L);
+      cur.minX = Math.min(cur.minX, L.x);
+    }
+    prev = L;
+  }
+  return paras.map(p => {
+    if (p.segs[0] && !p.segs[0].tab) p.segs[0].text = p.segs[0].text.replace(/^\s+/, '');
+    let leftIndent = 0, firstIndent = 0;
+    if (p.align === 'left') {
+      leftIndent = Math.max(0, p.minX - left);
+      firstIndent = (p.firstX - left) - leftIndent;
+      if (leftIndent < 2) leftIndent = 0;
+      if (Math.abs(firstIndent) < 2) firstIndent = 0;
+      if (p.lines.length > 1 && p.lines.slice(0, -1).every(l => right - l.right < l.size * 2.5)) p.align = 'both';
+    }
+    let line = null;
+    if (p.lines.length > 1) {
+      const gaps = [];
+      for (let i = 1; i < p.lines.length; i++) gaps.push(p.lines[i].y - p.lines[i - 1].y);
+      const r = percentile(gaps, 0.5) / p.lines[0].size;
+      line = Math.round(clamp(240 * r / 1.17, 240, 480));
+    }
+    return { segs: p.segs, align: p.align, leftIndent, firstIndent, spaceBefore: clamp(p.gapBefore * 0.8, 0, 30), line, tabs: p.hasTab ? p.tabs : null };
+  });
+}
+function textBounds(lines, pageW) {
+  const xs = lines.filter(l => l.items.length).map(l => l.x);
+  const rs = lines.map(l => l.right);
+  if (!xs.length) return { left: 72, right: pageW - 72 };
+  return { left: percentile(xs, 0.1), right: Math.max(percentile(rs, 0.9), percentile(xs, 0.1) + 100) };
+}
+
+// Decide whether a document writes 1.234,5 (Việt Nam) or 1,234.5 (quốc tế) by counting unambiguous numbers.
+function detectNumMode(strings) {
+  let vn = 0, en = 0;
+  for (const s of strings) {
+    vn += (s.match(/\d{1,3}(\.\d{3}){2,}|\d{1,3}(\.\d{3})+,\d+|\d,\d{1,2}(?!\d)/g) || []).length;
+    en += (s.match(/\d{1,3}(,\d{3}){2,}|\d{1,3}(,\d{3})+\.\d+|\d\.\d{1,2}(?!\d)/g) || []).length;
+  }
+  return en > vn ? 'en' : 'vn';
+}
+// Returns {v, z} for a number (z = Excel number format) or null to keep the text as is.
+function toNumber(s, mode) {
+  const t = String(s).trim().replace(/\s+/g, '');
+  if (mode === 'text' || !t) return null;
+  if (!/^[-+(]?\d[\d.,]*\)?%?$/.test(t)) return null;
+  if (/^0\d/.test(t)) return null;                      // mã có số 0 đầu: giữ nguyên chữ
+  if (t.replace(/\D/g, '').length > 15) return null;   // mã vận đơn, số tài khoản dài
+  const neg = /^-|^\(.*\)$/.test(t);
+  const pct = /%$/.test(t);
+  let core = t.replace(/[-+()%]/g, '');
+  const thouSep = mode === 'en' ? ',' : '.';
+  let dec = null, grouped = false;
+  const hasDot = core.includes('.'), hasComma = core.includes(',');
+  if (hasDot && hasComma) {
+    dec = core.lastIndexOf('.') > core.lastIndexOf(',') ? '.' : ',';
+    grouped = true;
+  } else if (hasDot || hasComma) {
+    const sep = hasDot ? '.' : ',';
+    const parts = core.split(sep);
+    if (parts.length > 2) grouped = true;                                    // 1.234.567
+    else if (sep === thouSep && parts[1].length === 3 && parts[0] !== '0') grouped = true;
+    else dec = sep;
+  }
+  const thou = dec === '.' ? ',' : dec === ',' ? '.' : (hasDot ? '.' : ',');
+  core = core.split(thou).join('');
+  if (dec) core = core.replace(dec, '.');
+  if (!/^\d+(\.\d+)?$/.test(core)) return null;
+  const decimals = (core.split('.')[1] || '').length;
+  let v = parseFloat(core);
+  if (neg) v = -v;
+  const frac = decimals ? '.' + '0'.repeat(Math.min(decimals, 6)) : '';
+  if (pct) return { v: v / 100, z: '0' + frac + '%' };
+  if (grouped) return { v, z: '#,##0' + frac };
+  return { v, z: decimals ? '0' + frac : null };
+}
+function linesToRows(lines) {
+  const rows = lines.map(L => {
+    const cells = [];
+    let cur = null;
+    for (const it of L.items) {
+      const gap = cur ? it.x - cur.x1 : Infinity;
+      // OCR boxes hug the ink, so word gaps look wider than in text PDFs.
+      if (cur && gap < Math.max(it.size, cur.size) * (it.ocr ? 0.62 : 0.5)) {
+        cur.text += (gap > it.size * 0.2 && !/\s$/.test(cur.text) ? ' ' : '') + it.str;
+        cur.x1 = Math.max(cur.x1, it.x + it.w);
+      } else {
+        cur = { x0: it.x, x1: it.x + it.w, text: it.str, size: it.size };
+        cells.push(cur);
+      }
+    }
+    return { cells };
+  });
+  const multi = rows.filter(r => r.cells.length >= 2);
+  const basis = multi.length ? multi : rows;
+  const maxX = Math.ceil(Math.max(1, ...rows.flatMap(r => r.cells.map(c => c.x1)))) + 2;
+  const cov = new Uint16Array(maxX + 1);
+  for (const r of basis) for (const c of r.cells) for (let x = Math.max(0, Math.floor(c.x0)); x <= Math.min(maxX, Math.ceil(c.x1)); x++) cov[x]++;
+  const thr = Math.floor(basis.length * 0.08);
+  const bands = [];
+  let start = -1;
+  for (let x = 0; x <= maxX; x++) {
+    if (cov[x] > thr) { if (start < 0) start = x; }
+    else if (start >= 0) { bands.push([start, x - 1]); start = -1; }
+  }
+  if (start >= 0) bands.push([start, maxX]);
+  if (!bands.length) bands.push([0, maxX]);
+  // A column owns the space from the previous column's right edge to its own right edge,
+  // so left-aligned headers above right-aligned numbers land in the right column.
+  const bandOf = c => {
+    for (let i = 0; i < bands.length; i++) {
+      const lo = i ? bands[i - 1][1] : -Infinity;
+      if (c.x0 > lo - 0.5 && c.x0 <= bands[i][1] + 0.5) return i;
+    }
+    return bands.length - 1;
+  };
+  const table = rows.map(r => {
+    const out = new Array(bands.length).fill('');
+    for (const c of r.cells) {
+      const i = bandOf(c);
+      out[i] = out[i] ? out[i] + ' ' + c.text.trim() : c.text.trim();
+    }
+    return out;
+  });
+  return compactCols(table);
+}
+// Drop empty columns and join neighbouring columns that never hold values in the same row
+// (typically a left-aligned header above right-aligned numbers).
+function compactCols(rows) {
+  if (!rows.length) return rows;
+  const has = v => String(v ?? '').trim() !== '';
+  const width = Math.max(...rows.map(r => r.length));
+  rows = rows.map(r => Array.from({ length: width }, (_, c) => r[c] ?? ''));
+  const filled = c => rows.reduce((n, r) => n + (has(r[c]) ? 1 : 0), 0);
+  if (!rows.some(r => r.filter(has).length >= 3)) return rows.map(r => r.filter(has).length ? r : r);
+  const keep = [...Array(width).keys()].filter(c => filled(c) > 0);
+  rows = rows.map(r => keep.map(c => r[c]));
+  for (let guard = 0; guard < 50; guard++) {
+    const w = rows[0].length;
+    let merged = false;
+    for (let c = 0; c < w - 1; c++) {
+      // Only rows that look like table rows (3+ cells) block a merge; titles and prose lines do not.
+      if (rows.some(r => r.filter(has).length >= 3 && has(r[c]) && has(r[c + 1]))) continue;
+      rows = rows.map(r => [...r.slice(0, c), has(r[c]) && has(r[c + 1]) ? `${r[c]} ${r[c + 1]}` : has(r[c]) ? r[c] : r[c + 1], ...r.slice(c + 2)]);
+      merged = true;
+      break;
+    }
+    if (!merged) break;
+  }
+  return rows;
+}
+
+/* ---------- minimal .docx writer ---------- */
+const xmlEsc = s => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const tw = pt => Math.round(pt * 20);
+class DocxBuilder {
+  constructor(o) {
+    this.pageW = o.pageW; this.pageH = o.pageH;
+    this.margins = o.margins || { top: 56.7, right: 56.7, bottom: 56.7, left: 85 };
+    this.font = o.font || 'Times New Roman'; this.size = o.size || 13;
+    this.parts = []; this.media = [];
+  }
+  run(s) {
+    if (s.tab) return '<w:r><w:tab/></w:r>';
+    let rpr = '';
+    if (s.font) rpr += `<w:rFonts w:ascii="${xmlEsc(s.font)}" w:hAnsi="${xmlEsc(s.font)}" w:cs="${xmlEsc(s.font)}"/>`;
+    if (s.bold) rpr += '<w:b/><w:bCs/>';
+    if (s.italic) rpr += '<w:i/><w:iCs/>';
+    if (s.size) { const hp = Math.round(s.size * 2); rpr += `<w:sz w:val="${hp}"/><w:szCs w:val="${hp}"/>`; }
+    return `<w:r>${rpr ? `<w:rPr>${rpr}</w:rPr>` : ''}<w:t xml:space="preserve">${xmlEsc(s.text)}</w:t></w:r>`;
+  }
+  paragraph(p) {
+    let ppr = '';
+    if (p.pageBreakBefore) ppr += '<w:pageBreakBefore/>';
+    if (p.tabs && p.tabs.length) ppr += '<w:tabs>' + [...new Set(p.tabs.map(t => tw(Math.max(0, t))))].sort((a, b) => a - b).map(t => `<w:tab w:val="left" w:pos="${t}"/>`).join('') + '</w:tabs>';
+    ppr += `<w:spacing w:before="${tw(p.spaceBefore || 0)}" w:after="${tw(p.spaceAfter || 0)}"${p.line ? ` w:line="${p.line}" w:lineRule="auto"` : ''}/>`;
+    const ind = [];
+    if (p.leftIndent > 1) ind.push(`w:left="${tw(p.leftIndent)}"`);
+    if (p.firstIndent > 1) ind.push(`w:firstLine="${tw(p.firstIndent)}"`);
+    else if (p.firstIndent < -1) ind.push(`w:hanging="${tw(-p.firstIndent)}"`);
+    if (ind.length) ppr += `<w:ind ${ind.join(' ')}/>`;
+    if (p.align && p.align !== 'left') ppr += `<w:jc w:val="${p.align}"/>`;
+    this.parts.push(`<w:p><w:pPr>${ppr}</w:pPr>${(p.segs || []).map(s => this.run(s)).join('')}</w:p>`);
+  }
+  image(bytes, ext, wPt, hPt, pageBreakBefore) {
+    const id = this.media.length + 1, rid = `rIdImg${id}`, name = `image${id}.${ext}`;
+    this.media.push({ name, bytes, rid });
+    const cx = Math.round(wPt * 12700), cy = Math.round(hPt * 12700);
+    this.parts.push(`<w:p><w:pPr>${pageBreakBefore ? '<w:pageBreakBefore/>' : ''}<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${id}" name="Trang ${id}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${id}" name="${name}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`);
+  }
+  async toBlob() {
+    await need('jszip');
+    const z = new window.JSZip();
+    const m = this.margins;
+    z.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="jpeg" ContentType="image/jpeg"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>');
+    z.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+    z.file('word/_rels/document.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' + this.media.map(x => `<Relationship Id="${x.rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${x.name}"/>`).join('') + '</Relationships>');
+    const f = xmlEsc(this.font), hp = Math.round(this.size * 2);
+    z.file('word/styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="${f}" w:hAnsi="${f}" w:cs="${f}" w:eastAsia="${f}"/><w:sz w:val="${hp}"/><w:szCs w:val="${hp}"/><w:lang w:val="vi-VN"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style></w:styles>`);
+    const sect = `<w:sectPr><w:pgSz w:w="${tw(this.pageW)}" w:h="${tw(this.pageH)}"${this.pageW > this.pageH ? ' w:orient="landscape"' : ''}/><w:pgMar w:top="${tw(m.top)}" w:right="${tw(m.right)}" w:bottom="${tw(m.bottom)}" w:left="${tw(m.left)}" w:header="425" w:footer="425" w:gutter="0"/></w:sectPr>`;
+    z.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>${this.parts.join('') || '<w:p/>'}${sect}</w:body></w:document>`);
+    for (const x of this.media) z.file('word/media/' + x.name, x.bytes);
+    return z.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', compression: 'DEFLATE' });
+  }
+}
+
+/* ---------- HTML -> PDF pages (used by Word and Excel to PDF) ---------- */
+async function snapshot(node, opts) {
+  return window.html2canvas(node, { backgroundColor: '#ffffff', logging: false, useCORS: true, ...opts });
+}
+async function addImagePage(pdf, canvas, wPt, hPt, x, y, drawW, drawH, quality = 0.9) {
+  const bytes = await blobBytes(await canvasBlob(canvas, 'image/jpeg', quality));
+  const img = await pdf.embedJpg(bytes);
+  const page = pdf.addPage([wPt, hPt]);
+  page.drawImage(img, { x, y: hPt - y - drawH, width: drawW, height: drawH });
+  return page;
+}
+function stampPageNumbers(pdf) {
+  const pages = pdf.getPages();
+  if (pages.length < 2) return;
+  const font = pdf.embedStandardFont(window.PDFLib.StandardFonts.Helvetica);
+  return font.then ? font.then(f => doStamp(f)) : doStamp(font);
+  function doStamp(f) {
+    pages.forEach((p, i) => {
+      const t = `Trang ${i + 1}/${pages.length}`;
+      const { width } = p.getSize();
+      p.drawText(t, { x: width - 36 - f.widthOfTextAtSize(t, 8), y: 16, size: 8, font: f, color: window.PDFLib.rgb(0.45, 0.45, 0.45) });
+    });
+  }
+}
+
+/* ---------- image helpers ---------- */
+function jpegOrientation(bytes) {
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (v.byteLength < 4 || v.getUint16(0) !== 0xFFD8) return 1;
+  let off = 2;
+  while (off + 4 < v.byteLength) {
+    const marker = v.getUint16(off); off += 2;
+    const len = v.getUint16(off);
+    if (marker === 0xFFE1 && v.getUint32(off + 2) === 0x45786966) {
+      const t = off + 8;
+      const little = v.getUint16(t) === 0x4949;
+      const ifd = t + v.getUint32(t + 4, little);
+      const n = v.getUint16(ifd, little);
+      for (let i = 0; i < n; i++) {
+        const e = ifd + 2 + i * 12;
+        if (e + 10 > v.byteLength) break;
+        if (v.getUint16(e, little) === 0x0112) return v.getUint16(e + 8, little);
+      }
+      return 1;
+    }
+    if ((marker & 0xFF00) !== 0xFF00) break;
+    off += len;
+  }
+  return 1;
+}
+function loadImageEl(blob) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => res({ img, url });
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new UserError('Trình duyệt không đọc được ảnh này (ảnh HEIC của iPhone cần đổi sang JPG trước).')); };
+    img.src = url;
+  });
+}
+async function prepImage(file, compress) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const isJpg = bytes[0] === 0xFF && bytes[1] === 0xD8;
+  const isPng = bytes[0] === 0x89 && bytes[1] === 0x50;
+  if (isJpg && !compress && jpegOrientation(bytes) === 1) {
+    const { img, url } = await loadImageEl(new Blob([bytes]));
+    URL.revokeObjectURL(url);
+    return { bytes, kind: 'jpg', w: img.naturalWidth, h: img.naturalHeight };
+  }
+  if (isPng && !compress) {
+    const { img, url } = await loadImageEl(new Blob([bytes]));
+    URL.revokeObjectURL(url);
+    return { bytes, kind: 'png', w: img.naturalWidth, h: img.naturalHeight };
+  }
+  const { img, url } = await loadImageEl(new Blob([bytes], { type: file.type || '' }));
+  let w = img.naturalWidth, h = img.naturalHeight;
+  const maxSide = compress ? 2400 : 6000;
+  const k = Math.min(1, maxSide / Math.max(w, h));
+  w = Math.round(w * k); h = Math.round(h * k);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
+  URL.revokeObjectURL(url);
+  const keepPng = isPng && !compress;
+  const out = await blobBytes(await canvasBlob(c, keepPng ? 'image/png' : 'image/jpeg', compress ? 0.82 : 0.93));
+  freeCanvas(c);
+  return { bytes: out, kind: keepPng ? 'png' : 'jpg', w, h };
+}
+
+/* ---------- document scanning: find the page, flatten it, clean the background ---------- */
+async function imageToCanvas(file, maxSide = 3000) {
+  const { img, url } = await loadImageEl(file);
+  let w = img.naturalWidth, h = img.naturalHeight;
+  const k = Math.min(1, maxSide / Math.max(w, h));
+  w = Math.max(1, Math.round(w * k)); h = Math.max(1, Math.round(h * k));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d').drawImage(img, 0, 0, w, h);
+  URL.revokeObjectURL(url);
+  return c;
+}
+// Paper is the largest bright, low-colour region. Returns [TL, TR, BR, BL] or null when unsure.
+function findPageCorners(src) {
+  const k = Math.min(1, 480 / Math.max(src.width, src.height));
+  const w = Math.max(8, Math.round(src.width * k)), h = Math.max(8, Math.round(src.height * k));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(src, 0, 0, w, h);
+  const d = ctx.getImageData(0, 0, w, h).data;
+  const v = new Uint8Array(w * h), hist = new Uint32Array(256);
+  for (let i = 0; i < w * h; i++) {
+    const r = d[4 * i], g = d[4 * i + 1], b = d[4 * i + 2];
+    v[i] = Math.min(r, g, b) * 0.6 + (0.299 * r + 0.587 * g + 0.114 * b) * 0.4;
+    hist[v[i]]++;
+  }
+  // Otsu threshold
+  let sum = 0; for (let t = 0; t < 256; t++) sum += t * hist[t];
+  let sumB = 0, wB = 0, best = 0, thr = 128;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t]; if (!wB) continue;
+    const wF = w * h - wB; if (!wF) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB, mF = (sum - sumB) / wF, between = wB * wF * (mB - mF) * (mB - mF);
+    if (between > best) { best = between; thr = t; }
+  }
+  const mask = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) mask[i] = v[i] > thr ? 1 : 0;
+  // largest 4-connected bright region
+  const label = new Int32Array(w * h).fill(-1);
+  let bestId = -1, bestSize = 0;
+  const stack = new Int32Array(w * h);
+  for (let s0 = 0; s0 < w * h; s0++) {
+    if (!mask[s0] || label[s0] >= 0) continue;
+    let sp = 0, size = 0; stack[sp++] = s0; label[s0] = s0;
+    while (sp) {
+      const i = stack[--sp]; size++;
+      const x = i % w, y = (i / w) | 0;
+      if (x > 0 && mask[i - 1] && label[i - 1] < 0) { label[i - 1] = s0; stack[sp++] = i - 1; }
+      if (x < w - 1 && mask[i + 1] && label[i + 1] < 0) { label[i + 1] = s0; stack[sp++] = i + 1; }
+      if (y > 0 && mask[i - w] && label[i - w] < 0) { label[i - w] = s0; stack[sp++] = i - w; }
+      if (y < h - 1 && mask[i + w] && label[i + w] < 0) { label[i + w] = s0; stack[sp++] = i + w; }
+    }
+    if (size > bestSize) { bestSize = size; bestId = s0; }
+  }
+  const frac = bestSize / (w * h);
+  if (bestId < 0 || frac < 0.15 || frac > 0.97) return null;
+  let tl = [0, 0, Infinity], tr = [0, 0, -Infinity], br = [0, 0, -Infinity], bl = [0, 0, Infinity];
+  for (let i = 0; i < w * h; i++) {
+    if (label[i] !== bestId) continue;
+    const x = i % w, y = (i / w) | 0;
+    if (x + y < tl[2]) tl = [x, y, x + y];
+    if (x + y > br[2]) br = [x, y, x + y];
+    if (x - y > tr[2]) tr = [x, y, x - y];
+    if (x - y < bl[2]) bl = [x, y, x - y];
+  }
+  const q = [tl, tr, br, bl].map(([x, y]) => [x, y]);
+  const area = Math.abs(q.reduce((a, p, i) => { const n = q[(i + 1) % 4]; return a + p[0] * n[1] - n[0] * p[1]; }, 0)) / 2;
+  if (area < bestSize * 0.8 || area > w * h * 0.98) return null;          // not a clean four-sided sheet
+  const touching = q.filter(([x, y]) => x <= 1 || y <= 1 || x >= w - 2 || y >= h - 2).length;
+  if (touching >= 3) return null;                                           // sheet already fills the photo
+  return q.map(([x, y]) => [(x + 0.5) / k, (y + 0.5) / k]);
+}
+function solveHomography(from, to) {
+  // Find H with H * from[i] ~ to[i] (8 unknowns, Gaussian elimination).
+  const A = [], b = [];
+  for (let i = 0; i < 4; i++) {
+    const [x, y] = from[i], [u, v] = to[i];
+    A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u);
+    A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v);
+  }
+  for (let c = 0; c < 8; c++) {
+    let piv = c; for (let r = c + 1; r < 8; r++) if (Math.abs(A[r][c]) > Math.abs(A[piv][c])) piv = r;
+    [A[c], A[piv]] = [A[piv], A[c]]; [b[c], b[piv]] = [b[piv], b[c]];
+    for (let r = 0; r < 8; r++) {
+      if (r === c) continue;
+      const f = A[r][c] / A[c][c];
+      for (let k2 = c; k2 < 8; k2++) A[r][k2] -= f * A[c][k2];
+      b[r] -= f * b[c];
+    }
+  }
+  const hh = b.map((v, i) => v / A[i][i]);
+  return [...hh, 1];
+}
+function warpToRect(src, q) {
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  let W = Math.round(Math.max(dist(q[0], q[1]), dist(q[3], q[2])));
+  let H = Math.round(Math.max(dist(q[0], q[3]), dist(q[1], q[2])));
+  const k = Math.min(1, 3000 / Math.max(W, H)); W = Math.round(W * k); H = Math.round(H * k);
+  const m = solveHomography([[0, 0], [W, 0], [W, H], [0, H]], q);
+  const sd = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, src.width, src.height);
+  const S = sd.data, sw = src.width, sh = src.height;
+  const out = document.createElement('canvas'); out.width = W; out.height = H;
+  const octx = out.getContext('2d');
+  const od = octx.createImageData(W, H), O = od.data;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const z = m[6] * x + m[7] * y + 1;
+      let fx = (m[0] * x + m[1] * y + m[2]) / z, fy = (m[3] * x + m[4] * y + m[5]) / z;
+      fx = clamp(fx, 0, sw - 1.001); fy = clamp(fy, 0, sh - 1.001);
+      const x0 = fx | 0, y0 = fy | 0, ax = fx - x0, ay = fy - y0;
+      const i00 = (y0 * sw + x0) * 4, i10 = i00 + 4, i01 = i00 + sw * 4, i11 = i01 + 4;
+      const o = (y * W + x) * 4;
+      for (let ch = 0; ch < 3; ch++) {
+        const top = S[i00 + ch] + (S[i10 + ch] - S[i00 + ch]) * ax;
+        const bot = S[i01 + ch] + (S[i11 + ch] - S[i01 + ch]) * ax;
+        O[o + ch] = top + (bot - top) * ay;
+      }
+      O[o + 3] = 255;
+    }
+  }
+  octx.putImageData(od, 0, 0);
+  // trim the paper edge that is often left at the border
+  const t = Math.max(2, Math.round(Math.min(W, H) * 0.008));
+  const trimmed = document.createElement('canvas'); trimmed.width = W - 2 * t; trimmed.height = H - 2 * t;
+  trimmed.getContext('2d').drawImage(out, -t, -t);
+  freeCanvas(out);
+  return trimmed;
+}
+// Background (paper + shadows) estimate: max-pool, widen, blur. Dividing by it gives a white page.
+function paperBackground(ch, w, h) {
+  const f = 8, sw = Math.ceil(w / f), sh = Math.ceil(h / f);
+  let a = new Float32Array(sw * sh);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = ((y / f) | 0) * sw + ((x / f) | 0); const v = ch[y * w + x]; if (v > a[i]) a[i] = v; }
+  const pass = (fn) => { const b = new Float32Array(sw * sh); for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) b[y * sw + x] = fn(x, y); a = b; };
+  const at = (x, y) => a[clamp(y, 0, sh - 1) * sw + clamp(x, 0, sw - 1)];
+  pass((x, y) => Math.max(at(x - 1, y - 1), at(x, y - 1), at(x + 1, y - 1), at(x - 1, y), at(x, y), at(x + 1, y), at(x - 1, y + 1), at(x, y + 1), at(x + 1, y + 1)));
+  for (let r = 0; r < 2; r++) pass((x, y) => (at(x - 1, y - 1) + at(x, y - 1) + at(x + 1, y - 1) + at(x - 1, y) + at(x, y) + at(x + 1, y) + at(x - 1, y + 1) + at(x, y + 1) + at(x + 1, y + 1)) / 9);
+  return (x, y) => {
+    const gx = clamp(x / f - 0.5, 0, sw - 1), gy = clamp(y / f - 0.5, 0, sh - 1);
+    const x0 = gx | 0, y0 = gy | 0, x1 = Math.min(sw - 1, x0 + 1), y1 = Math.min(sh - 1, y0 + 1), ax = gx - x0, ay = gy - y0;
+    const top = a[y0 * sw + x0] + (a[y0 * sw + x1] - a[y0 * sw + x0]) * ax;
+    const bot = a[y1 * sw + x0] + (a[y1 * sw + x1] - a[y1 * sw + x0]) * ax;
+    return Math.max(1, top + (bot - top) * ay);
+  };
+}
+function enhanceScan(c, mode) {
+  const w = c.width, h = c.height;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  const id = ctx.getImageData(0, 0, w, h), D = id.data;
+  if (mode === 'color') {
+    for (let ch = 0; ch < 3; ch++) {
+      const plane = new Uint8Array(w * h);
+      for (let i = 0; i < w * h; i++) plane[i] = D[4 * i + ch];
+      const bg = paperBackground(plane, w, h);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = y * w + x; D[4 * i + ch] = clamp(plane[i] * 255 / bg(x, y), 0, 255); }
+    }
+  } else {
+    const g = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) g[i] = 0.299 * D[4 * i] + 0.587 * D[4 * i + 1] + 0.114 * D[4 * i + 2];
+    const bg = paperBackground(g, w, h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      const n = clamp(g[i] * 255 / bg(x, y), 0, 255);
+      const v = mode === 'bw' ? (n < 190 ? 0 : 255) : clamp((n - 40) * 255 / 200, 0, 255);
+      D[4 * i] = D[4 * i + 1] = D[4 * i + 2] = v;
+    }
+  }
+  ctx.putImageData(id, 0, 0);
+  return c;
+}
+async function samplePhotoFile() {
+  const bytes = await samplePdfBytes(23, 'D');
+  const src = await openPdfJs(bytes.buffer, 'mẫu');
+  const { canvas: page } = await renderPage(await src.getPage(1), 150);
+  const W = Math.round(page.width * 1.35), H = Math.round(page.height * 1.25);
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#5b4a3d'; ctx.fillRect(0, 0, W, H);
+  ctx.save();
+  ctx.translate(W / 2, H / 2); ctx.rotate(-0.07);
+  ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 30;
+  ctx.drawImage(page, -page.width / 2, -page.height / 2);
+  ctx.restore();
+  const grad = ctx.createLinearGradient(0, 0, W, H);
+  grad.addColorStop(0, 'rgba(0,0,0,0.28)'); grad.addColorStop(0.6, 'rgba(0,0,0,0)'); grad.addColorStop(1, 'rgba(255,240,210,0.08)');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+  freeCanvas(page);
+  const blob = await canvasBlob(c, 'image/jpeg', 0.86);
+  freeCanvas(c);
+  return new File([blob], 'Anh_chup_giay_to_mau.jpg', { type: 'image/jpeg' });
+}
+
+/* ---------- sample files ---------- */
+const SAMPLE_OFFICES = ['BC Trung tâm', 'BC Chợ Mới', 'BC Bến Xe', 'BC Khu Công nghiệp', 'BC Phường 2', 'BC Cảng cá'];
+function sampleRows(seed, n) {
+  let s = seed;
+  const rnd = () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    const code = 'E' + 'BCDEL'[Math.floor(rnd() * 5)] + String(100000000 + Math.floor(rnd() * 899999999)) + 'VN';
+    const kg = 100 + Math.floor(rnd() * 49) * 100;
+    const fee = 12000 + Math.floor(rnd() * 40) * 1500;
+    const day = 18 + Math.floor(rnd() * 6);
+    rows.push([String(i + 1), code, SAMPLE_OFFICES[Math.floor(rnd() * SAMPLE_OFFICES.length)], `${day}/10/2026`, kg.toLocaleString('vi-VN'), fee.toLocaleString('vi-VN')]);
+  }
+  return rows;
+}
+const SAMPLE_HEAD = ['STT', 'Mã bưu gửi', 'Bưu cục phát', 'Ngày nhận', 'KL (gram)', 'Cước (đồng)'];
+async function samplePdfBytes(seed = 7, label = 'A') {
+  await need('pdflib', 'fontkit');
+  const { PDFDocument, rgb } = window.PDFLib;
+  const doc = await PDFDocument.create();
+  doc.registerFontkit(window.fontkit);
+  // Full embedding: subsetting this font drops glyph outlines in some viewers.
+  const reg = await doc.embedFont(await fetchAsset(ASSET.font), { subset: false });
+  const bold = await doc.embedFont(await fetchAsset(ASSET.fontBold), { subset: false });
+  const rows = sampleRows(seed, 60);
+  const cols = [32, 112, 128, 76, 70, 78];
+  const W = 595.28, H = 841.89, x0 = 50;
+  const ink = rgb(0.1, 0.12, 0.15), line = rgb(0.55, 0.58, 0.6);
+  const center = (p, t, y, f, s) => p.drawText(t, { x: (W - f.widthOfTextAtSize(t, s)) / 2, y, size: s, font: f, color: ink });
+  const per = 22, pages = Math.ceil(rows.length / per);
+  for (let pi = 0; pi < pages; pi++) {
+    const p = doc.addPage([W, H]);
+    let y = H - 60;
+    if (pi === 0) {
+      p.drawText('BƯU ĐIỆN MẪU', { x: x0, y, size: 12, font: bold, color: ink });
+      p.drawText(`Số: 0${label}/BK-TP`, { x: x0, y: y - 16, size: 12, font: reg, color: ink });
+      y -= 52;
+      center(p, 'BẢNG KÊ BƯU GỬI TỒN PHÁT', y, bold, 15); y -= 19;
+      center(p, `Bộ ${label} · Dữ liệu mẫu để thử công cụ, không phải số liệu thật`, y, reg, 11.5); y -= 30;
+      const para = ['Bảng kê liệt kê các bưu gửi đã đến bưu cục phát nhưng chưa phát thành công trong ngày.', 'Bưu cục kiểm tra lại địa chỉ, liên hệ người nhận và cập nhật kết quả trước 16 giờ', 'ngày làm việc kế tiếp.'];
+      for (const t of para) { p.drawText(t, { x: x0, y, size: 12, font: reg, color: ink }); y -= 17; }
+      y -= 12;
+    }
+    const drawRow = (vals, f, yy, head) => {
+      let x = x0;
+      vals.forEach((v, i) => {
+        const tw2 = f.widthOfTextAtSize(v, 10.5);
+        const right = i >= 4 || i === 0;
+        p.drawText(v, { x: right && !head ? x + cols[i] - 5 - tw2 : x + 5, y: yy + 6.5, size: 10.5, font: f, color: ink });
+        x += cols[i];
+      });
+    };
+    const rowH = 21, tableW = cols.reduce((a, b) => a + b, 0);
+    p.drawRectangle({ x: x0, y: y - rowH, width: tableW, height: rowH, color: rgb(0.9, 0.94, 0.93) });
+    drawRow(SAMPLE_HEAD, bold, y - rowH, true);
+    const chunk = rows.slice(pi * per, pi * per + per);
+    const top = y;
+    y -= rowH;
+    for (const r of chunk) { y -= rowH; drawRow(r, reg, y, false); }
+    for (let k = 0; k <= chunk.length + 1; k++) p.drawLine({ start: { x: x0, y: top - k * rowH }, end: { x: x0 + tableW, y: top - k * rowH }, thickness: 0.6, color: line });
+    let xx = x0;
+    for (let k = 0; k <= cols.length; k++) { p.drawLine({ start: { x: xx, y: top }, end: { x: xx, y }, thickness: 0.6, color: line }); xx += cols[k] || 0; }
+    p.drawText(`Trang ${pi + 1}/${pages}`, { x: W - 50 - reg.widthOfTextAtSize(`Trang ${pi + 1}/${pages}`, 9), y: 30, size: 9, font: reg, color: line });
+  }
+  return doc.save();
+}
+async function sampleScanBytes() {
+  const bytes = await samplePdfBytes(11, 'S');
+  const src = await openPdfJs(bytes.buffer, 'mẫu');
+  const out = await window.PDFLib.PDFDocument.create();
+  for (let i = 1; i <= src.numPages; i++) {
+    const page = await src.getPage(i);
+    const { canvas } = await renderPage(page, 200);
+    const ctx = canvas.getContext('2d');
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = 'rgba(244,241,232,0.5)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const v = page.getViewport({ scale: 1 });
+    await addImagePage(out, canvas, v.width, v.height, 0, 0, v.width, v.height, 0.85);
+    freeCanvas(canvas);
+  }
+  return out.save();
+}
+async function sampleDocxBlob() {
+  const d = new DocxBuilder({ pageW: 595.28, pageH: 841.89, margins: { top: 56.7, right: 42.5, bottom: 56.7, left: 85 } });
+  const P = (text, o = {}) => d.paragraph({ segs: [{ text, bold: o.b, italic: o.i, size: o.s || 13 }], align: o.a || 'left', spaceBefore: o.sb || 0, spaceAfter: o.sa || 0, firstIndent: o.fi || 0, line: o.line });
+  P('BƯU ĐIỆN MẪU', { b: true, a: 'left', s: 12 });
+  P('Số: 01/CV-TP', { s: 12, sa: 12 });
+  P('CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM', { b: true, a: 'center', s: 12 });
+  P('Độc lập - Tự do - Hạnh phúc', { b: true, a: 'center', s: 13, sa: 6 });
+  P('ngày 24 tháng 10 năm 2026', { i: true, a: 'right', sa: 18 });
+  P('CÔNG VĂN (MẪU)', { b: true, a: 'center', s: 14 });
+  P('V/v đẩy nhanh phát bưu gửi tồn cuối tuần', { a: 'center', sa: 18 });
+  const body = [
+    'Đây là văn bản mẫu được tạo để thử chức năng chuyển Word sang PDF. Nội dung không phải số liệu hay chỉ đạo thật.',
+    'Đề nghị các bưu cục rà soát toàn bộ bưu gửi tồn trên 24 giờ, phân loại theo nguyên nhân và bố trí lực lượng phát bổ sung vào sáng thứ Bảy.',
+    'Kết quả phát cập nhật lên hệ thống trước 16 giờ hằng ngày. Trường hợp không liên hệ được người nhận, ghi rõ lý do để chuyển hoàn đúng hạn.',
+  ];
+  for (const t of body) P(t, { a: 'both', fi: 35, sa: 6, line: 288 });
+  P('Nơi nhận:', { b: true, i: true, s: 12, sb: 18 });
+  P('- Các bưu cục trực thuộc;', { s: 11 });
+  P('- Lưu: VT.', { s: 11 });
+  return d.toBlob();
+}
+async function sampleXlsxBlob() {
+  await need('xlsx');
+  const rows = sampleRows(5, 45);
+  const aoa = [['BẢNG KÊ BƯU GỬI TỒN PHÁT (DỮ LIỆU MẪU)'], [], SAMPLE_HEAD, ...rows.map(r => [+r[0], r[1], r[2], r[3], +r[4].replace(/\./g, ''), +r[5].replace(/\./g, '')])];
+  const ws = window.XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
+  ws['!cols'] = [{ wch: 5 }, { wch: 16 }, { wch: 20 }, { wch: 12 }, { wch: 11 }, { wch: 12 }];
+  for (let r = 3; r < aoa.length; r++) for (const c of [4, 5]) { const ref = window.XLSX.utils.encode_cell({ r, c }); if (ws[ref]) ws[ref].z = '#,##0'; }
+  const wb = window.XLSX.utils.book_new();
+  window.XLSX.utils.book_append_sheet(wb, ws, 'Ton phat');
+  const buf = window.XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+async function sampleImages() {
+  const bytes = await samplePdfBytes(3, 'C');
+  const src = await openPdfJs(bytes.buffer, 'mẫu');
+  const out = [];
+  for (let i = 1; i <= 2; i++) {
+    const { canvas } = await renderPage(await src.getPage(i), 110);
+    out.push(new File([await canvasBlob(canvas, 'image/jpeg', 0.88)], `Anh_chup_mau_${i}.jpg`, { type: 'image/jpeg' }));
+    freeCanvas(canvas);
+  }
+  return out;
+}
+
+/* ---------- tools ---------- */
+const OCR_OPT = { id: 'ocr', label: 'Nhận dạng chữ (OCR)', type: 'select', value: 'auto', choices: [['auto', 'Tự động'], ['always', 'Luôn nhận dạng (file scan)'], ['off', 'Tắt']], hint: 'Tự động: chỉ nhận dạng trang không có chữ sẵn. Mỗi trang mất vài giây.' };
+const PAGES_OPT = { id: 'pages', label: 'Trang cần lấy', type: 'text', placeholder: 'Để trống = tất cả, ví dụ 1-3, 5' };
+
+const TOOLS = [
+  {
+    id: 'merge', short: 'Ghép PDF', group: 'Ghép & tách', name: 'Ghép PDF', conv: 'PDF + PDF → PDF',
+    desc: 'Gộp nhiều file PDF thành một. Sắp xếp thứ tự bằng các nút mũi tên, mỗi file có thể chỉ lấy một số trang.',
+    exts: ['pdf'], multiple: true, action: 'Ghép thành 1 file', minFiles: 2, rangePerFile: true,
+    opts: [{ id: 'name', label: 'Tên file kết quả', type: 'text', placeholder: 'Ghep_tai_lieu' }],
+    sample: async () => [new File([await samplePdfBytes(7, 'A')], 'Bang_ke_mau_A.pdf', { type: 'application/pdf' }), new File([await samplePdfBytes(19, 'B')], 'Bang_ke_mau_B.pdf', { type: 'application/pdf' })],
+    async run(items, o, ui) {
+      await need('pdflib');
+      const out = await window.PDFLib.PDFDocument.create();
+      let total = 0;
+      for (let i = 0; i < items.length; i++) {
+        ui.check();
+        const it = items[i];
+        ui.step(`Đang đọc ${it.name}`, i / items.length);
+        const src = await openPdfLib(await it.file.arrayBuffer(), it.name);
+        const idx = pageList(it.range, src.getPageCount());
+        const pages = await out.copyPages(src, idx);
+        pages.forEach(p => out.addPage(p));
+        total += pages.length;
+      }
+      ui.step('Đang lưu file', 0.95);
+      const bytes = await out.save();
+      const name = safeName(o.name || `Ghep_${items.length}_file`) + '.pdf';
+      return { files: [{ name, blob: new Blob([bytes], { type: 'application/pdf' }) }], info: `${items.length} file, tổng ${total} trang.` };
+    },
+  },
+  {
+    id: 'split', short: 'Tách PDF', group: 'Ghép & tách', name: 'Tách PDF', conv: 'PDF → nhiều PDF',
+    desc: 'Tách một file PDF theo từng trang, theo khoảng trang, hoặc trích các trang bạn chọn ra file mới.',
+    exts: ['pdf'], multiple: false, action: 'Tách file', thumbs: true,
+    opts: [
+      { id: 'mode', label: 'Cách tách', type: 'select', value: 'ranges', choices: [['ranges', 'Theo khoảng trang'], ['each', 'Mỗi trang một file'], ['everyN', 'Cứ N trang một file'], ['selected', 'Trích các trang đã chọn thành 1 file']] },
+      { id: 'ranges', label: 'Các khoảng trang', type: 'text', placeholder: 'Ví dụ 1-3, 4-6, 7', hint: 'Mỗi khoảng thành một file.', showIf: o => o.mode === 'ranges' },
+      { id: 'n', label: 'Số trang mỗi file', type: 'number', value: '2', showIf: o => o.mode === 'everyN' },
+      { id: 'sel', label: 'Trang đã chọn', type: 'text', placeholder: 'Bấm vào trang bên trên hoặc gõ 2, 4-5', showIf: o => o.mode === 'selected' },
+    ],
+    sample: async () => [new File([await samplePdfBytes(7, 'A')], 'Bang_ke_mau_A.pdf', { type: 'application/pdf' })],
+    async run(items, o, ui) {
+      const it = items[0];
+      const src = await openPdfLib(await it.file.arrayBuffer(), it.name);
+      const n = src.getPageCount();
+      let groups;
+      if (o.mode === 'each') groups = Array.from({ length: n }, (_, i) => [i]);
+      else if (o.mode === 'everyN') { const k = Math.max(1, parseInt(o.n, 10) || 1); groups = []; for (let i = 0; i < n; i += k) groups.push(Array.from({ length: Math.min(k, n - i) }, (_, j) => i + j)); }
+      else if (o.mode === 'selected') { const g = parseSpec(o.sel, n); if (!g) throw new UserError('Chưa chọn trang nào. Bấm vào ảnh trang hoặc gõ số trang.'); groups = [g.flat()]; }
+      else { groups = parseSpec(o.ranges, n); if (!groups) throw new UserError('Nhập các khoảng trang cần tách, ví dụ 1-3, 4-6.'); }
+      const base = safeName(baseName(it.name));
+      const files = [];
+      for (let i = 0; i < groups.length; i++) {
+        ui.check();
+        ui.step(`Đang tạo file ${i + 1}/${groups.length}`, i / groups.length);
+        const out = await window.PDFLib.PDFDocument.create();
+        (await out.copyPages(src, groups[i])).forEach(p => out.addPage(p));
+        const g = groups[i];
+        const label = o.mode === 'selected' ? 'trich' : `tr${groupLabel(g)}`;
+        files.push({ name: `${base}_${label}.pdf`, blob: new Blob([await out.save()], { type: 'application/pdf' }) });
+        if (i % 10 === 9) await sleep(0);
+      }
+      return { files, info: `File gốc ${n} trang, tách thành ${files.length} file.` };
+    },
+  },
+  {
+    id: 'pdf2word', short: 'PDF → Word', group: 'Từ PDF', name: 'PDF sang Word', conv: 'PDF → DOCX',
+    desc: 'Lấy chữ trong PDF ra file Word để sửa. Giữ đoạn văn, căn lề, chữ đậm và cỡ chữ; PDF scan được nhận dạng chữ tự động.',
+    note: ['Bảng biểu chuyển thành dòng chữ cách bằng tab, hình ảnh không được lấy. Cần giữ bố cục đầy đủ thì dùng bản máy tính.', 'Chọn "Giữ nguyên hình thức" nếu chỉ cần mở bằng Word mà không sửa chữ.'],
+    exts: ['pdf'], multiple: false, action: 'Chuyển sang Word',
+    opts: [
+      { id: 'mode', label: 'Kiểu chuyển', type: 'select', value: 'text', choices: [['text', 'Văn bản sửa được'], ['image', 'Giữ nguyên hình thức (mỗi trang là ảnh)']] },
+      { ...OCR_OPT, showIf: o => o.mode === 'text' },
+      PAGES_OPT,
+      { id: 'breaks', label: 'Ngắt trang giống bản PDF', type: 'check', value: true, showIf: o => o.mode === 'text' },
+    ],
+    sample: async () => [new File([await samplePdfBytes(7, 'A')], 'Bang_ke_mau_A.pdf', { type: 'application/pdf' })],
+    async run(items, o, ui) {
+      const it = items[0];
+      const pdf = await openPdfJs(await it.file.arrayBuffer(), it.name);
+      const idx = pageList(o.pages, pdf.numPages);
+      const first = (await pdf.getPage(idx[0] + 1)).getViewport({ scale: 1 });
+      const name = safeName(baseName(it.name)) + '.docx';
+      if (o.mode === 'image') {
+        const d = new DocxBuilder({ pageW: first.width, pageH: first.height, margins: { top: 0, right: 0, bottom: 0, left: 0 } });
+        for (let k = 0; k < idx.length; k++) {
+          ui.check();
+          ui.step(`Đang chụp trang ${idx[k] + 1}`, k / idx.length);
+          const page = await pdf.getPage(idx[k] + 1);
+          const { canvas } = await renderPage(page, 150);
+          const k2 = Math.min(first.width / canvas.width, first.height / canvas.height) * 0.995;
+          d.image(await blobBytes(await canvasBlob(canvas, 'image/jpeg', 0.85)), 'jpeg', canvas.width * k2, canvas.height * k2, k > 0);
+          freeCanvas(canvas);
+        }
+        ui.step('Đang đóng gói file Word', 0.97);
+        return { files: [{ name, blob: await d.toBlob() }], info: `${idx.length} trang, mỗi trang là một ảnh.` };
+      }
+      const pagesData = [];
+      let ocrPages = 0;
+      for (let k = 0; k < idx.length; k++) {
+        ui.check();
+        const label = `Trang ${idx[k] + 1} (${k + 1}/${idx.length})`;
+        ui.step(`Đang đọc chữ ${label}`, k / idx.length);
+        ui.span(k / idx.length, (k + 1) / idx.length);
+        const page = await pdf.getPage(idx[k] + 1);
+        const r = await pageItemsWithOcr(page, o.ocr, 220, ui, label);
+        if (r.usedOcr) ocrPages++;
+        const lines = groupLines(r.items);
+        pagesData.push({ lines, width: r.width, height: r.height, bounds: textBounds(lines, r.width) });
+      }
+      ui.span(0, 1);
+      const withText = pagesData.filter(p => p.lines.length);
+      if (!withText.length) throw new UserError(o.ocr === 'off' ? 'Không tìm thấy chữ trong PDF. Đây có thể là file scan, hãy bật nhận dạng chữ (OCR).' : 'Không nhận dạng được chữ nào trong file.');
+      const left = percentile(withText.map(p => p.bounds.left), 0.5);
+      const rightM = percentile(withText.map(p => p.width - p.bounds.right), 0.5);
+      const allSizes = withText.flatMap(p => p.lines.map(l => l.size));
+      const bodySize = percentile(allSizes, 0.5) || 13;
+      const famCount = {};
+      for (const p of withText) for (const l of p.lines) for (const i of l.items) if (i.family) famCount[i.family] = (famCount[i.family] || 0) + i.str.length;
+      const font = Object.entries(famCount).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Times New Roman';
+      const d = new DocxBuilder({ pageW: first.width, pageH: first.height, margins: { top: 42.5, bottom: 42.5, left: clamp(left, 28, 120), right: clamp(rightM, 20, 100) }, font, size: bodySize });
+      let docLines = [];
+      const allParas = [];
+      pagesData.forEach((p, pi) => {
+        const paras = buildParagraphs(p.lines, p.bounds.left, p.bounds.right);
+        paras.forEach((q, qi) => {
+          q.leftIndent += Math.max(0, p.bounds.left - d.margins.left);
+          if (qi === 0) { q.pageBreakBefore = o.breaks && pi > 0; q.spaceBefore = 0; }
+          if (q.line) docLines.push(q.line);
+          allParas.push(q);
+        });
+      });
+      const lineDefault = docLines.length ? percentile(docLines, 0.5) : null;
+      for (const q of allParas) { if (!q.line && lineDefault) q.line = lineDefault; d.paragraph(q); }
+      ui.step('Đang đóng gói file Word', 0.97);
+      return { files: [{ name, blob: await d.toBlob() }], info: `${idx.length} trang, ${allParas.length} đoạn văn${ocrPages ? `, ${ocrPages} trang được nhận dạng chữ (nên rà lại lỗi chính tả)` : ''}.` };
+    },
+  },
+  {
+    id: 'pdf2excel', short: 'PDF → Excel', group: 'Từ PDF', name: 'PDF sang Excel', conv: 'PDF → XLSX',
+    desc: 'Đọc bảng số liệu trong PDF ra Excel. Cột được xác định theo vị trí chữ; số kiểu 1.234,5 được đổi thành số thật, mã có số 0 đầu được giữ nguyên.',
+    note: ['Hợp với bảng thẳng hàng xuất từ phần mềm (bảng kê, báo cáo). Bảng có ô gộp phức tạp có thể bị lệch cột, nên kiểm tra lại.'],
+    exts: ['pdf'], multiple: false, action: 'Chuyển sang Excel',
+    opts: [
+      { id: 'layout', label: 'Cách xếp sheet', type: 'select', value: 'one', choices: [['one', 'Tất cả trang vào 1 sheet'], ['page', 'Mỗi trang một sheet']] },
+      { id: 'num', label: 'Cách ghi số trong PDF', type: 'select', value: 'auto', choices: [['auto', 'Tự nhận ra'], ['vn', 'Việt Nam: 1.234.567,5'], ['en', 'Quốc tế: 1,234,567.5'], ['text', 'Giữ nguyên dạng chữ']] },
+      OCR_OPT, PAGES_OPT,
+    ],
+    sample: async () => [new File([await samplePdfBytes(7, 'A')], 'Bang_ke_mau_A.pdf', { type: 'application/pdf' })],
+    async run(items, o, ui) {
+      await need('xlsx');
+      const it = items[0];
+      const pdf = await openPdfJs(await it.file.arrayBuffer(), it.name);
+      const idx = pageList(o.pages, pdf.numPages);
+      const XLSX = window.XLSX;
+      const wb = XLSX.utils.book_new();
+      const perPage = [];
+      let ocrPages = 0, rowCount = 0;
+      for (let k = 0; k < idx.length; k++) {
+        ui.check();
+        const label = `Trang ${idx[k] + 1} (${k + 1}/${idx.length})`;
+        ui.step(`Đang đọc bảng ${label}`, k / idx.length);
+        ui.span(k / idx.length, (k + 1) / idx.length);
+        const page = await pdf.getPage(idx[k] + 1);
+        const r = await pageItemsWithOcr(page, o.ocr, 250, ui, label);
+        if (r.usedOcr) ocrPages++;
+        const lines = groupLines(r.items);
+        rowCount += lines.length;
+        perPage.push({ name: `Trang ${idx[k] + 1}`, lines });
+      }
+      ui.span(0, 1);
+      if (!rowCount) throw new UserError(o.ocr === 'off' ? 'Không tìm thấy chữ trong PDF. Đây có thể là file scan, hãy bật nhận dạng chữ (OCR).' : 'Không đọc được dòng nào trong file.');
+      perPage.forEach(p => { p.rows = linesToRows(p.lines); });
+      const mode = o.num === 'auto' ? detectNumMode(perPage.flatMap(p => p.rows.flat())) : o.num;
+      const addSheet = (rows, name) => {
+        const width = Math.max(1, ...rows.map(r => r.length));
+        const fmts = [];
+        const aoa = rows.map((r, ri) => {
+          const a = [];
+          for (let c = 0; c < width; c++) {
+            const raw = r[c] ?? '';
+            const num = toNumber(raw, mode);
+            if (num) { a.push(num.v); if (num.z) fmts.push([ri, c, num.z]); } else a.push(raw);
+          }
+          return a;
+        });
+        const ws = XLSX.utils.aoa_to_sheet(aoa.length ? aoa : [['']]);
+        ws['!cols'] = Array.from({ length: width }, (_, c) => ({ wch: clamp(Math.max(...rows.map(r => String(r[c] ?? '').length)) + 2, 6, 60) }));
+        for (const [r, c, z] of fmts) { const cell = ws[XLSX.utils.encode_cell({ r, c })]; if (cell) cell.z = z; }
+        XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31));
+      };
+      if (o.layout === 'page') perPage.forEach(p => addSheet(p.rows, p.name));
+      else addSheet(linesToRows(perPage.flatMap(p => p.lines)), 'Du lieu');
+      ui.step('Đang đóng gói file Excel', 0.97);
+      const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const modeText = mode === 'en' ? 'số kiểu quốc tế' : mode === 'vn' ? 'số kiểu Việt Nam' : 'giữ số dạng chữ';
+      return { files: [{ name: safeName(baseName(it.name)) + '.xlsx', blob: new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }) }], info: `${rowCount} dòng từ ${idx.length} trang, đọc theo ${modeText}${ocrPages ? `, ${ocrPages} trang được nhận dạng chữ (nên đối chiếu lại số)` : ''}.` };
+    },
+  },
+  {
+    id: 'pdf2ppt', short: 'PDF → PPT', group: 'Từ PDF', name: 'PDF sang PowerPoint', conv: 'PDF → PPTX',
+    desc: 'Mỗi trang PDF thành một slide, giữ nguyên hình thức để trình chiếu trong cuộc họp. Chữ của trang được chép vào phần ghi chú của slide.',
+    note: ['Nội dung slide là ảnh, không sửa chữ trực tiếp được.'],
+    exts: ['pdf'], multiple: false, action: 'Chuyển sang PowerPoint',
+    opts: [
+      { id: 'dpi', label: 'Độ nét', type: 'select', value: '150', choices: [['110', 'Vừa (file nhẹ)'], ['150', 'Nét (khuyên dùng)'], ['220', 'Rất nét (file nặng)']] },
+      PAGES_OPT,
+      { id: 'notes', label: 'Chép chữ của trang vào ghi chú slide', type: 'check', value: true },
+    ],
+    sample: async () => [new File([await samplePdfBytes(7, 'A')], 'Bang_ke_mau_A.pdf', { type: 'application/pdf' })],
+    async run(items, o, ui) {
+      await need('pptx');
+      const it = items[0];
+      const pdf = await openPdfJs(await it.file.arrayBuffer(), it.name);
+      const idx = pageList(o.pages, pdf.numPages);
+      const v0 = (await pdf.getPage(idx[0] + 1)).getViewport({ scale: 1 });
+      const W = v0.width / 72, H = v0.height / 72;
+      const pptx = new window.PptxGenJS();
+      pptx.defineLayout({ name: 'PDF', width: W, height: H });
+      pptx.layout = 'PDF';
+      for (let k = 0; k < idx.length; k++) {
+        ui.check();
+        ui.step(`Đang tạo slide ${k + 1}/${idx.length}`, k / idx.length);
+        const page = await pdf.getPage(idx[k] + 1);
+        const { canvas } = await renderPage(page, +o.dpi);
+        const data = await blobDataUrl(await canvasBlob(canvas, 'image/jpeg', 0.88));
+        const r = Math.min(W / canvas.width, H / canvas.height);
+        const w = canvas.width * r, h = canvas.height * r;
+        const slide = pptx.addSlide();
+        slide.addImage({ data: data.replace(/^data:/, ''), x: (W - w) / 2, y: (H - h) / 2, w, h });
+        if (o.notes) {
+          const { items: its } = await pdfItems(page);
+          const txt = groupLines(its).map(l => l.items.map(i => i.str).join(' ')).join('\n').trim();
+          if (txt) slide.addNotes(txt.slice(0, 8000));
+        }
+        freeCanvas(canvas);
+      }
+      ui.step('Đang đóng gói file PowerPoint', 0.97);
+      const blob = await pptx.write({ outputType: 'blob' });
+      return { files: [{ name: safeName(baseName(it.name)) + '.pptx', blob }], info: `${idx.length} slide.` };
+    },
+  },
+  {
+    id: 'pdf2img', short: 'PDF → Ảnh', group: 'Từ PDF', name: 'PDF sang ảnh', conv: 'PDF → JPG / PNG',
+    desc: 'Chụp từng trang PDF thành ảnh để gửi qua Zalo, chèn vào báo cáo hoặc in.',
+    exts: ['pdf'], multiple: false, action: 'Xuất ảnh',
+    opts: [
+      { id: 'fmt', label: 'Định dạng', type: 'select', value: 'jpg', choices: [['jpg', 'JPG (nhẹ, hợp gửi tin nhắn)'], ['png', 'PNG (nét, nặng hơn)']] },
+      { id: 'dpi', label: 'Độ phân giải', type: 'select', value: '150', choices: [['100', '100 dpi · xem trên điện thoại'], ['150', '150 dpi · thông dụng'], ['200', '200 dpi · in ấn'], ['300', '300 dpi · in đẹp']] },
+      PAGES_OPT,
+    ],
+    sample: async () => [new File([await samplePdfBytes(7, 'A')], 'Bang_ke_mau_A.pdf', { type: 'application/pdf' })],
+    async run(items, o, ui) {
+      const it = items[0];
+      const pdf = await openPdfJs(await it.file.arrayBuffer(), it.name);
+      const idx = pageList(o.pages, pdf.numPages);
+      const base = safeName(baseName(it.name));
+      const files = [];
+      const pad = String(pdf.numPages).length;
+      for (let k = 0; k < idx.length; k++) {
+        ui.check();
+        ui.step(`Đang xuất trang ${idx[k] + 1}`, k / idx.length);
+        const { canvas } = await renderPage(await pdf.getPage(idx[k] + 1), +o.dpi, 30e6);
+        const blob = await canvasBlob(canvas, o.fmt === 'png' ? 'image/png' : 'image/jpeg', 0.9);
+        files.push({ name: `${base}_trang_${String(idx[k] + 1).padStart(pad, '0')}.${o.fmt}`, blob, preview: true });
+        freeCanvas(canvas);
+      }
+      return { files, info: `${files.length} ảnh, ${o.dpi} dpi.` };
+    },
+  },
+  {
+    id: 'word2pdf', short: 'Word → PDF', group: 'Sang PDF', name: 'Word sang PDF', conv: 'DOCX → PDF',
+    desc: 'Chuyển file Word (.docx) thành PDF. Khổ giấy và lề lấy theo file gốc, có cả đầu trang và chân trang.',
+    note: ['Bản web vẽ lại trang rồi chụp thành ảnh, nên chữ trong PDF không chọn được và phông chữ phụ thuộc máy đang dùng. Cần PDF chuẩn để nộp, ký số thì dùng bản máy tính.', 'File .doc đời cũ cần mở bằng Word rồi lưu lại thành .docx.'],
+    exts: ['docx'], multiple: false, action: 'Chuyển sang PDF',
+    opts: [{ id: 'q', label: 'Độ nét', type: 'select', value: '2', choices: [['1.5', 'Vừa'], ['2', 'Nét (khuyên dùng)'], ['3', 'Rất nét']] }],
+    sample: async () => [new File([await sampleDocxBlob()], 'Cong_van_mau.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })],
+    async run(items, o, ui) {
+      await need('pdflib', 'h2c', 'docxPreview');
+      const it = items[0];
+      const stage = $('#stage');
+      stage.innerHTML = '';
+      const styleHost = el('div'), host = el('div');
+      stage.append(styleHost, host);
+      ui.step('Đang dựng trang Word', 0.05);
+      try {
+        await window.docx.renderAsync(await it.file.arrayBuffer(), host, styleHost, {
+          className: 'xdocx', inWrapper: false, ignoreWidth: false, ignoreHeight: false, ignoreFonts: false,
+          breakPages: true, ignoreLastRenderedPageBreak: false, experimental: true, renderHeaders: true,
+          renderFooters: true, renderFootnotes: true, renderEndnotes: true, useBase64URL: true,
+        });
+      } catch (e) { stage.innerHTML = ''; throw new UserError(`Không đọc được "${it.name}". Hãy chắc đây là file .docx và không có mật khẩu.`); }
+      if (document.fonts && document.fonts.ready) await document.fonts.ready;
+      await sleep(50);
+      const sections = [...host.querySelectorAll('section.xdocx')];
+      if (!sections.length) { stage.innerHTML = ''; throw new UserError('File Word không có nội dung.'); }
+      const pdf = await window.PDFLib.PDFDocument.create();
+      const scale = +o.q;
+      const toPx = v => { const n = parseFloat(v) || 0; return /pt$/.test(v) ? n * 96 / 72 : /cm$/.test(v) ? n * 96 / 2.54 : /mm$/.test(v) ? n * 96 / 25.4 : /in$/.test(v) ? n * 96 : n; };
+      let pageNo = 0;
+      for (let si = 0; si < sections.length; si++) {
+        ui.check();
+        const sec = sections[si];
+        sec.style.background = sec.style.background || '#fff';
+        const cs = getComputedStyle(sec);
+        const pageWpx = sec.offsetWidth;
+        const pageHpx = toPx(sec.style.minHeight) || parseFloat(cs.minHeight) || pageWpx * 1.414;
+        const padT = parseFloat(cs.paddingTop) || 0, padB = parseFloat(cs.paddingBottom) || 0;
+        const H = sec.offsetHeight;
+        const wPt = pageWpx * 0.75, hPt = pageHpx * 0.75;
+        if (H <= pageHpx * 1.02) {
+          ui.step(`Đang chụp trang ${++pageNo}`, si / sections.length);
+          const c = await snapshot(sec, { scale, width: pageWpx, height: Math.min(H, pageHpx) });
+          await addImagePage(pdf, c, wPt, hPt, 0, 0, wPt, Math.min(H, pageHpx) * 0.75);
+          freeCanvas(c);
+          continue;
+        }
+        const secTop = sec.getBoundingClientRect().top;
+        const cands = [];
+        sec.querySelectorAll('p, tr, li, h1, h2, h3, h4, h5, h6, img, article > *').forEach(n => { const r = n.getBoundingClientRect(); if (r.height > 0) cands.push(r.bottom - secTop); });
+        cands.sort((a, b) => a - b);
+        const avail = pageHpx - padT - padB;
+        let start = 0;
+        let first = true;
+        const end0 = H - padB;
+        while (start < end0 - 2) {
+          ui.check();
+          const top = first ? 0 : start;
+          const limit = (first ? padT : start) + avail;
+          let end = cands.filter(y => y <= limit && y > (first ? padT : start) + avail * 0.25).pop();
+          if (!end || limit >= end0) end = Math.min(limit, end0);
+          ui.step(`Đang chụp trang ${++pageNo}`, si / sections.length);
+          const hpx = end - top;
+          const c = await snapshot(sec, { scale, y: top, height: hpx, width: pageWpx });
+          await addImagePage(pdf, c, wPt, hPt, 0, first ? 0 : padT * 0.75, wPt, hpx * 0.75);
+          freeCanvas(c);
+          start = end;
+          first = false;
+        }
+      }
+      stage.innerHTML = '';
+      ui.step('Đang lưu PDF', 0.97);
+      return { files: [{ name: safeName(baseName(it.name)) + '.pdf', blob: new Blob([await pdf.save()], { type: 'application/pdf' }) }], info: `${pdf.getPageCount()} trang.` };
+    },
+  },
+  {
+    id: 'excel2pdf', short: 'Excel → PDF', group: 'Sang PDF', name: 'Excel sang PDF', conv: 'XLSX → PDF',
+    desc: 'In bảng Excel ra PDF. Bảng rộng được thu nhỏ cho vừa khổ giấy, tự xoay ngang khi cần, dòng tiêu đề lặp lại ở mỗi trang.',
+    note: ['Bản web không đọc được màu nền, phông và khung viền riêng của từng ô; mọi ô được kẻ khung đều. Chữ trong PDF là ảnh. Cần đúng định dạng in thì dùng bản máy tính.'],
+    exts: ['xlsx', 'xls', 'xlsm', 'ods', 'csv'], multiple: false, action: 'Chuyển sang PDF', sheetPicker: true,
+    opts: [
+      { id: 'orient', label: 'Khổ giấy A4', type: 'select', value: 'auto', choices: [['auto', 'Tự chọn dọc hoặc ngang'], ['portrait', 'Dọc'], ['landscape', 'Ngang']] },
+      { id: 'head', label: 'Dòng tiêu đề lặp ở mỗi trang', type: 'select', value: 'auto', choices: [['auto', 'Tự tìm dòng tiêu đề'], ['1', 'Dòng 1'], ['none', 'Không lặp']] },
+      { id: 'num', label: 'Cách ghi số', type: 'select', value: 'vn', choices: [['vn', 'Việt Nam: 1.234,5'], ['raw', 'Giữ như trong file']] },
+      { id: 'title', label: 'In tên sheet ở đầu bảng', type: 'check', value: false },
+    ],
+    sample: async () => [new File([await sampleXlsxBlob()], 'Ton_phat_mau.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })],
+    async run(items, o, ui, extra) {
+      await need('xlsx', 'pdflib', 'h2c');
+      const XLSX = window.XLSX;
+      const it = items[0];
+      const wb = it.wb || XLSX.read(await it.file.arrayBuffer(), { type: 'array', cellStyles: true });
+      const chosen = (extra.sheets && extra.sheets.length) ? extra.sheets : wb.SheetNames;
+      const pdf = await window.PDFLib.PDFDocument.create();
+      const stage = $('#stage');
+      const M = 36;
+      let sheetsDone = 0;
+      for (const sn of chosen) {
+        ui.check();
+        const ws = wb.Sheets[sn];
+        if (!ws || !ws['!ref']) continue;
+        ui.step(`Đang dàn trang sheet "${sn}"`, sheetsDone / chosen.length);
+        const rg = XLSX.utils.decode_range(ws['!ref']);
+        let lastR = rg.s.r, lastC = rg.s.c;
+        for (let r = rg.s.r; r <= rg.e.r; r++) for (let c = rg.s.c; c <= rg.e.c; c++) { const cell = ws[XLSX.utils.encode_cell({ r, c })]; if (cell && cell.v != null && String(cell.w ?? cell.v).trim() !== '') { lastR = Math.max(lastR, r); lastC = Math.max(lastC, c); } }
+        const merges = {}, covered = new Set();
+        for (const m of ws['!merges'] || []) { merges[`${m.s.r},${m.s.c}`] = { rs: m.e.r - m.s.r + 1, cs: m.e.c - m.s.c + 1 }; for (let r = m.s.r; r <= m.e.r; r++) for (let c = m.s.c; c <= m.e.c; c++) if (r !== m.s.r || c !== m.s.c) covered.add(`${r},${c}`); }
+        const colsInfo = ws['!cols'] || [], rowsInfo = ws['!rows'] || [];
+        const cols = [];
+        for (let c = rg.s.c; c <= lastC; c++) if (!(colsInfo[c] && colsInfo[c].hidden)) cols.push(c);
+        const colW = c => { const ci = colsInfo[c] || {}; return Math.round(ci.wpx || (ci.wch ? ci.wch * 7 + 5 : ci.width ? ci.width * 7 + 5 : 72)); };
+        const mkTable = () => {
+          const t = el('table', { style: 'border-collapse:collapse;table-layout:fixed;font:12.5px/1.3 Calibri,Arial,"Helvetica Neue",sans-serif;color:#111;background:#fff' });
+          const cg = el('colgroup');
+          cols.forEach(c => cg.append(el('col', { style: `width:${colW(c)}px` })));
+          t.append(cg);
+          return t;
+        };
+        const full = mkTable();
+        const tb = el('tbody');
+        full.append(tb);
+        const rowsArr = [];
+        for (let r = rg.s.r; r <= lastR; r++) {
+          if (rowsInfo[r] && rowsInfo[r].hidden) continue;
+          const tr = el('tr');
+          if (rowsInfo[r] && rowsInfo[r].hpx) tr.style.height = rowsInfo[r].hpx + 'px';
+          let filled = 0;
+          for (const c of cols) {
+            const key = `${r},${c}`;
+            if (covered.has(key)) continue;
+            const cell = ws[XLSX.utils.encode_cell({ r, c })];
+            let txt = cell ? String(cell.w ?? cell.v ?? '') : '';
+            if (o.num === 'vn' && cell && cell.t === 'n') txt = txt.replace(/[,.]/g, ch => (ch === ',' ? '.' : ','));
+            if (txt.trim()) filled++;
+            const m = merges[key];
+            const td = el('td', { style: `border:1px solid #9aa3a0;padding:3px 5px;vertical-align:middle;white-space:pre-wrap;overflow-wrap:anywhere;${cell && (cell.t === 'n' || cell.t === 'd') ? 'text-align:right;' : ''}${cell && cell.s && cell.s.font && cell.s.font.bold ? 'font-weight:700;' : ''}`, text: txt });
+            if (m) { if (m.rs > 1) td.rowSpan = m.rs; const cs = cols.filter(cc => cc >= c && cc < c + m.cs).length; if (cs > 1) td.colSpan = cs; if (!(cell && cell.t === 'n')) td.style.textAlign = 'center'; }
+            tr.append(td);
+          }
+          tr.dataset.filled = filled;
+          tr.dataset.r = r;
+          tb.append(tr);
+          rowsArr.push(tr);
+        }
+        if (!rowsArr.length) continue;
+        stage.innerHTML = '';
+        stage.append(full);
+        await sleep(0);
+        const tableW = full.offsetWidth;
+        const heights = rowsArr.map(tr => tr.offsetHeight);
+        // header row detection
+        let headIdx = -1;
+        if (o.head === '1') headIdx = 0;
+        else if (o.head === 'auto') {
+          const lim = Math.min(rowsArr.length, 8);
+          for (let i = 0; i < lim; i++) { if (+rowsArr[i].dataset.filled >= Math.max(2, cols.length * 0.6)) { headIdx = i; break; } }
+          if (headIdx >= 0 && rowsArr.slice(0, headIdx + 1).some(tr => tr.querySelector('[rowspan]'))) headIdx = -1;
+        }
+        // page geometry
+        const A4 = [595.28, 841.89];
+        const portraitFit = (A4[0] - 2 * M) / (tableW * 0.75);
+        let land = o.orient === 'landscape' || (o.orient === 'auto' && portraitFit < 0.78);
+        const [pw, ph] = land ? [A4[1], A4[0]] : A4;
+        const s = Math.min(1, (pw - 2 * M) / (tableW * 0.75));
+        const f = 0.75 * s;
+        const titleH = o.title ? 26 : 0;
+        const availPx = (ph - 2 * M - 14) / f;
+        const headH = headIdx >= 0 ? heights[headIdx] : 0;
+        const chunks = [];
+        let cur = [], used = titleH;
+        for (let i = 0; i < rowsArr.length; i++) {
+          const hh = heights[i];
+          if (cur.length && used + hh > availPx) {
+            chunks.push(cur);
+            cur = [];
+            used = (headIdx >= 0 && i > headIdx) ? headH : 0;
+          }
+          cur.push(i);
+          used += hh;
+        }
+        if (cur.length) chunks.push(cur);
+        for (let ci = 0; ci < chunks.length; ci++) {
+          ui.check();
+          ui.step(`Sheet "${sn}" · trang ${ci + 1}/${chunks.length}`, (sheetsDone + ci / chunks.length) / chosen.length);
+          const wrap = el('div', { style: `width:${tableW}px;background:#fff;padding:0` });
+          if (o.title && ci === 0) wrap.append(el('div', { style: 'font:600 15px/1.3 Calibri,Arial,sans-serif;color:#111;height:26px', text: sn }));
+          const t = mkTable();
+          const body = el('tbody');
+          if (ci > 0 && headIdx >= 0 && chunks[ci][0] > headIdx) body.append(rowsArr[headIdx].cloneNode(true));
+          for (const i of chunks[ci]) body.append(rowsArr[i].cloneNode(true));
+          t.append(body);
+          wrap.append(t);
+          stage.innerHTML = '';
+          stage.append(wrap);
+          const hpx = wrap.offsetHeight;
+          const c = await snapshot(wrap, { scale: 2, width: tableW, height: hpx });
+          await addImagePage(pdf, c, pw, ph, M, M, tableW * f, hpx * f);
+          freeCanvas(c);
+        }
+        sheetsDone++;
+      }
+      stage.innerHTML = '';
+      if (!pdf.getPageCount()) throw new UserError('Các sheet đã chọn đều trống.');
+      await stampPageNumbers(pdf);
+      ui.step('Đang lưu PDF', 0.97);
+      return { files: [{ name: safeName(baseName(it.name)) + '.pdf', blob: new Blob([await pdf.save()], { type: 'application/pdf' }) }], info: `${sheetsDone} sheet, ${pdf.getPageCount()} trang.` };
+    },
+  },
+  {
+    id: 'img2pdf', short: 'Ảnh → PDF', group: 'Sang PDF', name: 'Ảnh sang PDF', conv: 'JPG / PNG → PDF',
+    desc: 'Gộp ảnh chụp chứng từ, biên bản thành một file PDF. Ảnh chụp bằng điện thoại được xoay đúng chiều tự động.',
+    exts: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'], multiple: true, action: 'Tạo PDF',
+    opts: [
+      { id: 'size', label: 'Khổ trang', type: 'select', value: 'a4', choices: [['a4', 'A4, ảnh nằm giữa trang'], ['fit', 'Vừa khít ảnh']] },
+      { id: 'margin', label: 'Lề trang', type: 'select', value: '20', choices: [['0', 'Không lề'], ['20', 'Lề nhỏ (7 mm)'], ['42', 'Lề vừa (15 mm)']], showIf: o => o.size === 'a4' },
+      { id: 'compress', label: 'Nén ảnh cho file nhẹ', type: 'check', value: true, hint: 'Nên bật khi ảnh chụp từ điện thoại.' },
+      { id: 'merge', label: 'Gộp tất cả ảnh vào 1 file PDF', type: 'check', value: true },
+    ],
+    sample: sampleImages,
+    async run(items, o, ui) {
+      await need('pdflib');
+      const { PDFDocument } = window.PDFLib;
+      const files = [];
+      let doc = await PDFDocument.create();
+      for (let i = 0; i < items.length; i++) {
+        ui.check();
+        ui.step(`Đang xử lý ảnh ${i + 1}/${items.length}`, i / items.length);
+        const im = await prepImage(items[i].file, o.compress);
+        const img = im.kind === 'png' ? await doc.embedPng(im.bytes) : await doc.embedJpg(im.bytes);
+        const land = im.w > im.h;
+        let pw, ph, dw, dh, x, y;
+        if (o.size === 'fit') {
+          pw = land ? 841.89 : 595.28; ph = pw * im.h / im.w; dw = pw; dh = ph; x = 0; y = 0;
+        } else {
+          [pw, ph] = land ? [841.89, 595.28] : [595.28, 841.89];
+          const m = +o.margin;
+          const k = Math.min((pw - 2 * m) / im.w, (ph - 2 * m) / im.h);
+          dw = im.w * k; dh = im.h * k; x = (pw - dw) / 2; y = (ph - dh) / 2;
+        }
+        doc.addPage([pw, ph]).drawImage(img, { x, y, width: dw, height: dh });
+        if (!o.merge) {
+          files.push({ name: safeName(baseName(items[i].name)) + '.pdf', blob: new Blob([await doc.save()], { type: 'application/pdf' }) });
+          doc = await PDFDocument.create();
+        }
+      }
+      if (o.merge) files.push({ name: safeName(items.length === 1 ? baseName(items[0].name) : `Anh_gop_${items.length}_trang`) + '.pdf', blob: new Blob([await doc.save()], { type: 'application/pdf' }) });
+      return { files, info: `${items.length} ảnh.` };
+    },
+  },
+  {
+    id: 'ppt2pdf', short: 'PPT → PDF', group: 'Sang PDF', name: 'PowerPoint sang PDF', conv: 'PPTX → PDF', desktopOnly: true,
+    desc: 'Trình duyệt không dựng lại được slide PowerPoint đủ chính xác (hiệu ứng, phông, hình vẽ), nên chức năng này chỉ có ở bản máy tính.',
+    exts: [],
+  },
+  {
+    id: 'scan', short: 'Scan', group: 'Scan & nhận dạng chữ', name: 'Scan tài liệu', conv: 'Ảnh chụp → PDF scan',
+    desc: 'Chụp giấy tờ bằng điện thoại (hoặc chọn ảnh có sẵn). Trang tự tìm mép giấy, nắn thẳng góc chụp nghiêng, xoá bóng tay và làm trắng nền, rồi gộp thành một file PDF như bản scan.',
+    note: ['Đặt giấy trên nền tối hơn giấy (mặt bàn gỗ, bìa màu) để trang tự tìm mép chính xác. Nếu cắt sai, bỏ chọn "Tự tìm và cắt mép giấy".', 'Bật "Thêm lớp chữ" để tìm kiếm, sao chép được chữ trong file, mỗi trang mất thêm vài giây.'],
+    exts: ['jpg', 'jpeg', 'png', 'webp', 'bmp'], multiple: true, camera: true, action: 'Tạo bản scan PDF',
+    opts: [
+      { id: 'mode', label: 'Kiểu ảnh', type: 'select', value: 'bw', choices: [['bw', 'Văn bản đen trắng (nhẹ, rõ chữ)'], ['gray', 'Thang xám (giữ con dấu, chữ ký mờ)'], ['color', 'Màu (giữ con dấu đỏ)']] },
+      { id: 'size', label: 'Khổ trang', type: 'select', value: 'a4', choices: [['a4', 'A4'], ['fit', 'Theo khổ tờ giấy']] },
+      { id: 'crop', label: 'Tự tìm và cắt mép giấy', type: 'check', value: true },
+      { id: 'ocr', label: 'Thêm lớp chữ tìm kiếm được (OCR)', type: 'check', value: false },
+      { id: 'name', label: 'Tên file', type: 'text', placeholder: 'Ban_scan' },
+    ],
+    sample: async () => [await samplePhotoFile()],
+    async run(items, o, ui) {
+      await need('pdflib');
+      const pdf = await window.PDFLib.PDFDocument.create();
+      let font = null, cropped = 0, thumb = null;
+      if (o.ocr) {
+        await need('fontkit');
+        pdf.registerFontkit(window.fontkit);
+        font = await pdf.embedFont(await fetchAsset(ASSET.font), { subset: true });
+        await getOcr(ui);
+      }
+      for (let i = 0; i < items.length; i++) {
+        ui.check();
+        ui.span(i / items.length, (i + 1) / items.length);
+        const label = `Trang ${i + 1}/${items.length}`;
+        ui.sub(`${label} · tìm mép giấy`, 0.05);
+        await sleep(0);
+        let c = await imageToCanvas(items[i].file);
+        if (o.crop) {
+          const q = findPageCorners(c);
+          if (q) { ui.sub(`${label} · nắn thẳng trang`, 0.15); await sleep(0); const w2 = warpToRect(c, q); freeCanvas(c); c = w2; cropped++; }
+        }
+        ui.sub(`${label} · làm trắng nền`, 0.3); await sleep(0);
+        enhanceScan(c, o.mode);
+        const blob = await canvasBlob(c, o.mode === 'bw' ? 'image/png' : 'image/jpeg', 0.85);
+        if (!thumb) {
+          const t = document.createElement('canvas'); const k = 160 / c.width; t.width = 160; t.height = Math.round(c.height * k);
+          t.getContext('2d').drawImage(c, 0, 0, t.width, t.height);
+          thumb = await canvasBlob(t, 'image/jpeg', 0.8); freeCanvas(t);
+        }
+        const bytes = await blobBytes(blob);
+        const img = o.mode === 'bw' ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
+        const land = c.width > c.height;
+        let pw, ph;
+        if (o.size === 'fit') { pw = land ? 841.89 : 595.28; ph = pw * c.height / c.width; }
+        else [pw, ph] = land ? [841.89, 595.28] : [595.28, 841.89];
+        const k = Math.min(pw / c.width, ph / c.height);
+        const dw = c.width * k, dh = c.height * k, ix = (pw - dw) / 2, iy = (ph - dh) / 2;
+        const page = pdf.addPage([pw, ph]);
+        page.drawImage(img, { x: ix, y: iy, width: dw, height: dh });
+        if (o.ocr) {
+          const data = await ocrCanvas(c, p => ui.sub(`${label} · nhận dạng chữ`, 0.4 + 0.6 * p));
+          for (const b of data.blocks || []) for (const p of b.paragraphs || []) for (const l of p.lines || []) for (const w of l.words || []) {
+            const t = cleanOcrWord(w.text);
+            if (!t) continue;
+            const x = ix + w.bbox.x0 * k, width = (w.bbox.x1 - w.bbox.x0) * k, height = (w.bbox.y1 - w.bbox.y0) * k;
+            const y = iy + (c.height - w.bbox.y1) * k;
+            const size = clamp(width / (font.widthOfTextAtSize(t, 1) || 1), height * 0.4, height * 2.2);
+            try { page.drawText(t, { x, y: y + height * 0.18, size, font, opacity: 0 }); } catch (e) { /* skip */ }
+          }
+        }
+        freeCanvas(c);
+      }
+      ui.span(0, 1);
+      ui.step('Đang lưu PDF', 0.97);
+      const name = safeName(o.name || (items.length === 1 ? baseName(items[0].name) + '_scan' : `Ban_scan_${items.length}_trang`)) + '.pdf';
+      return { files: [{ name, blob: new Blob([await pdf.save()], { type: 'application/pdf' }), thumb }], info: `${items.length} trang, tự cắt mép giấy ${cropped}/${items.length} trang${o.ocr ? ', đã thêm lớp chữ' : ''}.` };
+    },
+  },
+  {
+    id: 'ocr', short: 'OCR chữ', group: 'Scan & nhận dạng chữ', name: 'PDF scan có chữ', conv: 'OCR · PDF → PDF',
+    desc: 'Nhận dạng chữ tiếng Việt trên PDF scan, ảnh chụp rồi gắn lớp chữ ẩn vào file. Hình thức giữ nguyên, nhưng tìm kiếm (Ctrl+F) và bôi đen sao chép được.',
+    note: ['Mỗi trang mất khoảng 3–10 giây tuỳ máy. File trên 30 trang nên dùng bản máy tính.', 'Chữ viết tay, con dấu, chữ mờ thường nhận sai. Kết quả tốt nhất với bản scan thẳng, rõ nét.'],
+    exts: ['pdf'], multiple: false, action: 'Nhận dạng chữ',
+    opts: [
+      { id: 'dpi', label: 'Mức kỹ', type: 'select', value: '200', choices: [['150', 'Nhanh'], ['200', 'Chuẩn (khuyên dùng)'], ['300', 'Kỹ, cho chữ nhỏ']] },
+      PAGES_OPT,
+      { id: 'skip', label: 'Bỏ qua trang đã có chữ sẵn', type: 'check', value: true },
+    ],
+    sample: async () => [new File([await sampleScanBytes()], 'Bang_ke_scan_mau.pdf', { type: 'application/pdf' })],
+    async run(items, o, ui) {
+      await need('pdflib', 'fontkit');
+      const it = items[0];
+      const buf = await it.file.arrayBuffer();
+      const pdfjs = await openPdfJs(buf, it.name);
+      const out = await openPdfLib(buf, it.name);
+      out.registerFontkit(window.fontkit);
+      const font = await out.embedFont(await fetchAsset(ASSET.font), { subset: true });
+      const idx = pageList(o.pages, pdfjs.numPages);
+      await getOcr(ui);
+      let done = 0, skipped = 0, words = 0;
+      for (let k = 0; k < idx.length; k++) {
+        ui.check();
+        const label = `Trang ${idx[k] + 1} (${k + 1}/${idx.length})`;
+        ui.span(k / idx.length, (k + 1) / idx.length);
+        ui.sub(label, 0);
+        const page = await pdfjs.getPage(idx[k] + 1);
+        if (o.skip) { const { items: its } = await pdfItems(page); if (charCount(its) >= 15) { skipped++; continue; } }
+        const { canvas, vp } = await renderPage(page, +o.dpi);
+        const data = await ocrCanvas(canvas, p => ui.sub(label, p));
+        freeCanvas(canvas);
+        const lp = out.getPage(idx[k]);
+        for (const b of data.blocks || []) for (const p of b.paragraphs || []) for (const l of p.lines || []) for (const w of l.words || []) {
+          const t = cleanOcrWord(w.text);
+          if (!t) continue;
+          const a = vp.convertToPdfPoint(w.bbox.x0, w.bbox.y1);
+          const c = vp.convertToPdfPoint(w.bbox.x1, w.bbox.y0);
+          const x = Math.min(a[0], c[0]), y = Math.min(a[1], c[1]);
+          const width = Math.abs(c[0] - a[0]), height = Math.abs(c[1] - a[1]);
+          const unit = font.widthOfTextAtSize(t, 1) || 1;
+          const size = clamp(width / unit, height * 0.4, height * 2.2);
+          try { lp.drawText(t, { x, y: y + height * 0.18, size, font, opacity: 0 }); words++; } catch (e) { /* skip glyph issues */ }
+        }
+        done++;
+      }
+      ui.span(0, 1);
+      ui.step('Đang lưu PDF', 0.97);
+      const bytes = await out.save();
+      return { files: [{ name: safeName(baseName(it.name)) + '_co_chu.pdf', blob: new Blob([bytes], { type: 'application/pdf' }) }], info: `Đã nhận dạng ${done} trang (${words} từ)${skipped ? `, bỏ qua ${skipped} trang đã có chữ` : ''}.` };
+    },
+  },
+];
+
+/* ---------- state + UI ---------- */
+let tool = TOOLS[0];
+let items = [];
+let results = [];
+let running = false;
+let cancelFlag = false;
+let extraState = {};
+
+/* ---------- tool icons ---------- */
+const DOC_SHAPE = '<path d="M9 3.5h10l6 6V27a1.5 1.5 0 0 1-1.5 1.5H9A1.5 1.5 0 0 1 7.5 27V5A1.5 1.5 0 0 1 9 3.5z" fill="var(--sheet)" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M19 3.5v6h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>';
+const DOC_LINES = '<path d="M11 13h7M11 16.5h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".5"/>';
+const CORNERS = '<path d="M3.5 9V5.5a2 2 0 0 1 2-2H9M23 3.5h3.5a2 2 0 0 1 2 2V9M28.5 23v3.5a2 2 0 0 1-2 2H23M9 28.5H5.5a2 2 0 0 1-2-2V23" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>';
+const badge = (label, color) => `<rect x="13.5" y="18.5" width="16" height="10.5" rx="2.4" fill="${color}"/><text x="21.5" y="26.2" text-anchor="middle" font-family="Be Vietnam Pro, Arial, sans-serif" font-weight="700" font-size="${label.length > 1 ? 6.4 : 8.5}" fill="#fff">${label}</text>`;
+const srcMark = (label, color) => `<text x="10.2" y="16.5" font-family="Be Vietnam Pro, Arial, sans-serif" font-weight="700" font-size="8.5" fill="${color}">${label}</text>`;
+const PICTURE = '<rect x="3.5" y="6" width="19" height="15" rx="2" fill="var(--sheet)" stroke="currentColor" stroke-width="1.6"/><path d="M6 18.5l4.5-5 3.5 3.5 2.5-2.5 4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="17" cy="10.5" r="1.7" fill="currentColor"/>';
+const ICONS = {
+  merge: `<g transform="translate(-3 -1.5)" opacity=".5">${DOC_SHAPE}</g><g transform="translate(1.5 1)">${DOC_SHAPE}</g><rect x="15.5" y="18.5" width="11" height="11" rx="5.5" fill="var(--accent)"/><path d="M21 21.2v5.6M18.2 24h5.6" stroke="var(--accent-ink)" stroke-width="1.8" stroke-linecap="round"/>`,
+  split: `${DOC_SHAPE}${DOC_LINES}<path d="M3 21h26" stroke="var(--accent)" stroke-width="1.9" stroke-dasharray="2.6 2.2" stroke-linecap="round"/>`,
+  pdf2word: DOC_SHAPE + DOC_LINES + badge('W', 'var(--c-doc)'),
+  pdf2excel: DOC_SHAPE + DOC_LINES + badge('X', 'var(--c-xls)'),
+  pdf2ppt: DOC_SHAPE + DOC_LINES + badge('P', 'var(--c-ppt)'),
+  pdf2img: DOC_SHAPE + DOC_LINES + badge('JPG', 'var(--c-img)'),
+  word2pdf: DOC_SHAPE + srcMark('W', 'var(--c-doc)') + badge('PDF', 'var(--c-pdf)'),
+  excel2pdf: DOC_SHAPE + srcMark('X', 'var(--c-xls)') + badge('PDF', 'var(--c-pdf)'),
+  ppt2pdf: DOC_SHAPE + srcMark('P', 'var(--c-ppt)') + badge('PDF', 'var(--c-pdf)'),
+  img2pdf: PICTURE + badge('PDF', 'var(--c-pdf)'),
+  scan: `${CORNERS}<rect x="10" y="7.5" width="12" height="17" rx="1.2" fill="var(--sheet)" stroke="currentColor" stroke-width="1.5"/><path d="M12.5 12h7M12.5 15h7M12.5 18h4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity=".5"/><path d="M2.5 16h27" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>`,
+  ocr: `${CORNERS}<text x="16" y="20.5" text-anchor="middle" font-family="Be Vietnam Pro, Arial, sans-serif" font-weight="700" font-size="11" fill="currentColor">Aa</text><path d="M9.5 24h13" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/>`,
+};
+const iconSvg = id => `<svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">${ICONS[id] || DOC_SHAPE}</svg>`;
+
+function buildRail() {
+  const rail = $('#rail');
+  const groups = [...new Set(TOOLS.map(t => t.group))];
+  for (const g of groups) {
+    const grid = el('div', { class: 'tools' });
+    for (const t of TOOLS.filter(x => x.group === g)) {
+      const b = el('button', { type: 'button', class: 'tool', 'data-id': t.id, title: `${t.name} (${t.conv})`, 'aria-current': t === tool ? 'true' : 'false', onclick: () => selectTool(t.id) });
+      b.innerHTML = iconSvg(t.id);
+      b.append(el('span', { class: 'tool-name', text: t.short || t.name }));
+      if (t.desktopOnly) b.append(el('span', { class: 'desk', title: 'Chỉ có ở bản máy tính' }));
+      grid.append(b);
+    }
+    rail.append(el('div', { class: 'group' }, el('div', { class: 'group-label', text: g }), grid));
+  }
+  rail.append(el('div', { class: 'rail-note', text: 'Chấm cam: chỉ có ở bản máy tính' }));
+}
+function selectTool(id, skipHash) {
+  if (running) { toast('Đang xử lý, bấm Dừng trước khi đổi công cụ'); return; }
+  tool = TOOLS.find(t => t.id === id) || TOOLS[0];
+  document.querySelectorAll('.tool').forEach(b => b.setAttribute('aria-current', b.dataset.id === tool.id ? 'true' : 'false'));
+  if (!skipHash) { try { history.replaceState(null, '', '#' + tool.id); } catch (e) {} }
+  $('#tConv').textContent = tool.conv;
+  $('#tName').textContent = tool.name;
+  $('#tDesc').textContent = tool.desc;
+  const note = $('#tNote');
+  note.innerHTML = '';
+  if (tool.note && tool.note.length) {
+    note.append(el('b', { text: 'Cần biết' }));
+    if (tool.note.length === 1) note.append(el('span', { text: tool.note[0] }));
+    else note.append(el('ul', {}, tool.note.map(n => el('li', { text: n }))));
+    note.hidden = false;
+  } else note.hidden = true;
+  items = []; results = []; extraState = {};
+  const work = $('#workArea');
+  const desk = tool.desktopOnly;
+  $('#drop').hidden = desk;
+  $('#sampleRow').hidden = desk || !tool.sample;
+  $('#camRow').hidden = !tool.camera;
+  $('#actions').hidden = desk;
+  const old = $('#deskPanel'); if (old) old.remove();
+  if (desk) {
+    work.append(el('div', { class: 'desk-panel', id: 'deskPanel' },
+      el('h3', { text: 'Dùng bản máy tính cho việc này' }),
+      el('p', { text: 'Bản máy tính chuyển PowerPoint sang PDF bằng chính Microsoft PowerPoint (nếu máy có cài Office) hoặc LibreOffice, nên giữ đúng phông, hình và bố cục như khi bấm Save as PDF.' }),
+      el('p', { text: 'Mở chương trình Xưởng PDF trên máy, chọn thẻ "Sang PDF" rồi thêm file .pptx.' })));
+  }
+  const input = $('#fileInput');
+  input.multiple = !!tool.multiple;
+  input.accept = (tool.exts || []).map(e => '.' + e).join(',');
+  $('#dropTitle').textContent = tool.multiple ? 'Kéo thả các file vào đây' : 'Kéo thả file vào đây';
+  $('#dropExts').textContent = (tool.exts || []).map(e => e.toUpperCase()).join(' · ');
+  $('#runBtn').textContent = tool.action || 'Bắt đầu';
+  renderOptions();
+  renderFiles();
+  renderResults();
+  showError(null);
+  $('#progress').hidden = true;
+  if (incoming.length) { const ok = incoming.filter(acceptFile); if (ok.length) addFiles(ok); }
+}
+function renderOptions() {
+  const box = $('#opts');
+  box.innerHTML = '';
+  for (const f of tool.opts || []) {
+    const id = `o_${tool.id}_${f.id}`;
+    let field;
+    if (f.type === 'check') {
+      field = el('label', { class: 'field check', 'data-f': f.id }, el('input', { type: 'checkbox', id, checked: f.value ? true : null }), el('span', { text: f.label }));
+    } else {
+      let ctl;
+      if (f.type === 'select') ctl = el('select', { id }, f.choices.map(([v, l]) => el('option', { value: v, selected: v === f.value ? true : null, text: l })));
+      else ctl = el('input', { type: f.type === 'number' ? 'number' : 'text', id, value: f.value || '', placeholder: f.placeholder || '', min: f.type === 'number' ? '1' : null, inputmode: f.type === 'number' ? 'numeric' : null, autocomplete: 'off' });
+      field = el('label', { class: 'field', 'data-f': f.id, for: id }, el('span', { text: f.label }), ctl, f.hint ? el('small', { text: f.hint }) : null);
+    }
+    box.append(field);
+  }
+  box.oninput = box.onchange = () => { syncVisibility(); if (tool.thumbs) syncThumbSel(); };
+  syncVisibility();
+}
+function readOptions() {
+  const o = {};
+  for (const f of tool.opts || []) {
+    const n = document.getElementById(`o_${tool.id}_${f.id}`);
+    if (!n) continue;
+    o[f.id] = f.type === 'check' ? n.checked : n.value;
+  }
+  return o;
+}
+function syncVisibility() {
+  const o = readOptions();
+  for (const f of tool.opts || []) {
+    const n = $(`#opts [data-f="${f.id}"]`);
+    if (n) n.hidden = f.showIf ? !f.showIf(o) : false;
+  }
+}
+
+function acceptFile(file) {
+  const e = extOf(file.name);
+  return (tool.exts || []).includes(e) || (tool.exts.includes('jpg') && /^image\//.test(file.type) && !/heic|heif/.test(file.type));
+}
+function addFiles(list) {
+  const fs = [...list];
+  const bad = fs.filter(f => !acceptFile(f));
+  const good = fs.filter(acceptFile);
+  if (bad.length) toast(`Bỏ qua ${bad.length} file không đúng loại (${(tool.exts || []).join(', ')})`);
+  if (!good.length) return;
+  const wrapped = good.map(f => ({ file: f, name: f.name, size: f.size, meta: '', range: '' }));
+  items = tool.multiple ? items.concat(wrapped) : [wrapped[0]];
+  results = [];
+  renderResults();
+  showError(null);
+  renderFiles();
+  for (const it of wrapped) loadMeta(it);
+}
+async function loadMeta(it) {
+  try {
+    if (extOf(it.name) === 'pdf') {
+      const doc = await openPdfJs(await it.file.arrayBuffer(), it.name);
+      it.pages = doc.numPages;
+      it.meta = `${doc.numPages} trang`;
+      if (tool.thumbs && items[0] === it) renderThumbs(it, doc);
+      else doc.destroy();
+    } else if (tool.sheetPicker) {
+      await need('xlsx');
+      it.wb = window.XLSX.read(await it.file.arrayBuffer(), { type: 'array', cellStyles: true });
+      it.meta = `${it.wb.SheetNames.length} sheet`;
+      renderSheetPicker(it);
+    } else if (/^image\//.test(it.file.type) || ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'].includes(extOf(it.name))) {
+      const { img, url } = await loadImageEl(it.file);
+      it.meta = `${img.naturalWidth}×${img.naturalHeight}`;
+      it.thumbUrl = url;
+    }
+  } catch (e) {
+    it.metaErr = e instanceof UserError ? e.message : 'Không đọc được file';
+  }
+  renderFiles();
+}
+function renderFiles() {
+  const ul = $('#fileList');
+  ul.innerHTML = '';
+  items.forEach((it, i) => {
+    const meta = el('div', { class: 'fmeta' }, fmtSize(it.size), it.meta ? ` · ${it.meta}` : '');
+    if (it.metaErr) meta.append(' · ', el('span', { class: 'err', text: it.metaErr }));
+    const main = el('div', { class: 'fmain' }, el('div', { class: 'fname', text: it.name }), meta);
+    const body = it.thumbUrl ? el('div', { class: 'fwrap' }, el('img', { class: 'fthumb', src: it.thumbUrl, alt: '' }), main) : main;
+    if (tool.rangePerFile) {
+      const rid = `rng_${i}`;
+      main.append(el('div', { class: 'frange' }, el('label', { for: rid, text: 'Lấy trang' }), el('input', { id: rid, type: 'text', value: it.range, placeholder: 'tất cả', autocomplete: 'off', oninput: e => { it.range = e.target.value; } })));
+    }
+    const ctl = el('div', { class: 'fctl' });
+    if (tool.multiple) {
+      ctl.append(el('button', { type: 'button', class: 'ibtn', 'aria-label': `Đưa ${it.name} lên`, disabled: i === 0 ? true : null, onclick: () => { [items[i - 1], items[i]] = [items[i], items[i - 1]]; renderFiles(); } }, '↑'));
+      ctl.append(el('button', { type: 'button', class: 'ibtn', 'aria-label': `Đưa ${it.name} xuống`, disabled: i === items.length - 1 ? true : null, onclick: () => { [items[i + 1], items[i]] = [items[i], items[i + 1]]; renderFiles(); } }, '↓'));
+    }
+    ctl.append(el('button', { type: 'button', class: 'ibtn', 'aria-label': `Bỏ ${it.name}`, onclick: () => { items.splice(i, 1); if (!items.length) { $('#extra').innerHTML = ''; extraState = {}; } renderFiles(); } }, '×'));
+    ul.append(el('li', { class: 'frow' }, el('span', { class: 'fidx', text: String(i + 1) }), body, ctl));
+  });
+  if (!items.length) $('#extra').innerHTML = '';
+  const min = tool.minFiles || 1;
+  const ok = items.length >= min && !items.some(x => x.metaErr);
+  $('#runBtn').disabled = !ok || running;
+  $('#runHint').textContent = items.some(x => x.metaErr) ? 'Bỏ file bị lỗi ra để tiếp tục'
+    : items.length < min ? (min > 1 && items.length === 1 ? 'Thêm ít nhất 1 file nữa' : 'Thêm file để bắt đầu')
+    : `${items.length} file sẵn sàng`;
+}
+
+/* split: page thumbnails */
+let thumbObserver = null;
+function renderThumbs(it, doc) {
+  const box = $('#extra');
+  box.innerHTML = '';
+  extraState.sel = new Set();
+  const grid = el('div', { class: 'thumbs', role: 'group', 'aria-label': 'Các trang' });
+  box.append(el('h3', { text: 'Bấm vào trang để chọn khi trích trang' }), grid);
+  if (thumbObserver) thumbObserver.disconnect();
+  thumbObserver = new IntersectionObserver(entries => {
+    for (const en of entries) {
+      if (!en.isIntersecting) continue;
+      const b = en.target;
+      thumbObserver.unobserve(b);
+      const n = +b.dataset.p;
+      doc.getPage(n).then(async page => {
+        const v = page.getViewport({ scale: 1 });
+        b.querySelector('.pg').style.setProperty('--ar', (v.width / v.height).toFixed(3));
+        const { canvas } = await renderPage(page, 160 / v.width * 72 * 0.75);
+        b.querySelector('.pg').append(canvas);
+      }).catch(() => {});
+    }
+  }, { root: grid, rootMargin: '200px' });
+  for (let p = 1; p <= doc.numPages; p++) {
+    const b = el('button', { type: 'button', class: 'thumb', 'data-p': p, 'aria-pressed': 'false', 'aria-label': `Trang ${p}`, onclick: () => toggleSel(p) }, el('span', { class: 'pg' }), el('span', { class: 'num', text: String(p) }));
+    grid.append(b);
+    thumbObserver.observe(b);
+  }
+}
+function toggleSel(p) {
+  const sel = extraState.sel || (extraState.sel = new Set());
+  sel.has(p) ? sel.delete(p) : sel.add(p);
+  const modeEl = document.getElementById('o_split_mode');
+  if (modeEl && modeEl.value !== 'selected') { modeEl.value = 'selected'; syncVisibility(); }
+  const arr = [...sel].sort((a, b) => a - b);
+  const parts = [];
+  for (let i = 0; i < arr.length; i++) { let j = i; while (j + 1 < arr.length && arr[j + 1] === arr[j] + 1) j++; parts.push(i === j ? `${arr[i]}` : `${arr[i]}-${arr[j]}`); i = j; }
+  const inp = document.getElementById('o_split_sel');
+  if (inp) inp.value = parts.join(', ');
+  paintSel();
+}
+function syncThumbSel() {
+  const inp = document.getElementById('o_split_sel');
+  if (!inp || !items[0] || !items[0].pages) return;
+  const sel = new Set();
+  try { const g = parseSpec(inp.value, items[0].pages); if (g) g.flat().forEach(i => sel.add(i + 1)); } catch (e) { return; }
+  extraState.sel = sel;
+  paintSel();
+}
+function paintSel() {
+  document.querySelectorAll('.thumb').forEach(b => b.setAttribute('aria-pressed', extraState.sel && extraState.sel.has(+b.dataset.p) ? 'true' : 'false'));
+}
+
+/* excel: sheet picker */
+function renderSheetPicker(it) {
+  const box = $('#extra');
+  box.innerHTML = '';
+  const names = it.wb.SheetNames;
+  const hidden = new Set(((it.wb.Workbook && it.wb.Workbook.Sheets) || []).filter(s => s.Hidden).map(s => s.name));
+  const wrap = el('div', { class: 'sheetpick' });
+  names.forEach((n, i) => {
+    const id = `sh_${i}`;
+    wrap.append(el('label', { class: 'field check', for: id }, el('input', { type: 'checkbox', id, 'data-name': n, checked: hidden.has(n) ? null : true }), el('span', { text: n + (hidden.has(n) ? ' (ẩn)' : '') })));
+  });
+  box.append(el('h3', { text: 'Sheet cần in' }), wrap);
+}
+function readExtra() {
+  const sheets = [...document.querySelectorAll('#extra input[data-name]')].filter(i => i.checked).map(i => i.dataset.name);
+  return { sheets };
+}
+
+/* progress */
+function makeUi() {
+  // step(): overall progress 0..1. sub(): progress inside the current span (one page).
+  let span = [0, 1];
+  const bar = v => {
+    v = clamp(v, 0, 1);
+    $('#barFill').style.width = (v * 100).toFixed(1) + '%';
+    $('#pPct').textContent = Math.round(v * 100) + '%';
+  };
+  return {
+    step(text, frac) { if (text != null) $('#pText').textContent = text; if (frac != null) bar(frac); },
+    span(a, b) { span = [a, b]; },
+    sub(text, frac) { $('#pText').textContent = `${text} · ${Math.round((frac || 0) * 100)}%`; bar(span[0] + (span[1] - span[0]) * (frac || 0)); },
+    check() { if (cancelFlag) throw new Cancelled(); },
+  };
+}
+function showError(msg) {
+  const box = $('#errorBox');
+  if (!msg) { box.hidden = true; box.innerHTML = ''; return; }
+  box.innerHTML = '';
+  box.append(el('b', { text: 'Chưa xong. ' }), el('span', { text: msg }));
+  box.hidden = false;
+}
+function renderResults(info) {
+  const sec = $('#results');
+  const ul = $('#rList');
+  ul.innerHTML = '';
+  if (!results.length) { sec.hidden = true; return; }
+  sec.hidden = false;
+  $('#rInfo').textContent = info || '';
+  $('#zipBtn').hidden = results.length < 2;
+  const shown = results.slice(0, 200);
+  for (const r of shown) {
+    const ext = extOf(r.name);
+    const main = el('div', { style: 'min-width:0' }, el('div', { class: 'rname', text: r.name }), el('div', { class: 'rmeta', text: fmtSize(r.blob.size) }));
+    if (r.thumb) main.append(el('img', { class: 'rprev', src: URL.createObjectURL(r.thumb), alt: `Trang đầu của ${r.name}` }));
+    if (r.preview && shown.length <= 40) { const url = URL.createObjectURL(r.blob); main.append(el('img', { class: 'rprev', src: url, alt: `Xem trước ${r.name}` })); }
+    const btns = el('div', { class: 'rbtns' }, el('button', { type: 'button', class: 'secondary', onclick: () => saveBlob(r.name, r.blob) }, 'Lưu'));
+    const asFile = new File([r.blob], r.name, { type: r.blob.type || 'application/octet-stream' });
+    if (canShareFile(asFile)) btns.append(el('button', { type: 'button', class: 'ghost', onclick: () => shareFile(asFile) }, 'Gửi'));
+    ul.append(el('li', { class: 'rrow' }, el('span', { class: `ext ${ext}`, text: ext.toUpperCase() }), main, btns));
+  }
+  if (results.length > shown.length) ul.append(el('li', { class: 'rinfo', text: `Còn ${results.length - shown.length} file nữa, dùng nút Lưu tất cả (.zip).` }));
+}
+async function saveZip() {
+  await need('jszip');
+  const z = new window.JSZip();
+  const used = new Set();
+  for (const r of results) { let n = r.name, k = 2; while (used.has(n)) n = r.name.replace(/(\.[^.]+)$/, `_${k++}$1`); used.add(n); z.file(n, r.blob); }
+  const blob = await z.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+  const base = items[0] ? safeName(baseName(items[0].name)) : 'ket_qua';
+  saveBlob(`${base}_${results.length}_file.zip`, blob);
+}
+
+async function run() {
+  if (running || !items.length) return;
+  let o;
+  try { o = readOptions(); } catch (e) { return; }
+  running = true; cancelFlag = false;
+  results = []; renderResults(); showError(null);
+  $('#runBtn').disabled = true;
+  $('#stopBtn').hidden = false;
+  $('#progress').hidden = false;
+  $('#barFill').style.width = '0%';
+  $('#pPct').textContent = '0%';
+  const ui = makeUi();
+  ui.step('Đang chuẩn bị', 0);
+  const t0 = performance.now();
+  try {
+    const res = await tool.run(items, o, ui, readExtra());
+    ui.span(0, 1);
+    ui.step('Xong', 1);
+    results = res.files;
+    const secs = Math.max(1, Math.round((performance.now() - t0) / 1000));
+    renderResults(`${res.info || ''} Mất ${secs} giây.`.trim());
+    setTimeout(() => { $('#progress').hidden = true; }, 600);
+    $('#results').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' });
+  } catch (e) {
+    $('#progress').hidden = true;
+    if (e instanceof Cancelled) toast('Đã dừng');
+    else if (e instanceof UserError) showError(e.message);
+    else { console.error(e); showError('Có lỗi khi xử lý file: ' + ((e && e.message) || String(e)) + '. Nếu file lớn, thử chọn ít trang hơn hoặc dùng bản máy tính.'); }
+  } finally {
+    running = false;
+    $('#stopBtn').hidden = true;
+    $('#stage').innerHTML = '';
+    renderFiles();
+  }
+}
+
+
+/* ---------- ứng dụng cài được: chia sẻ file, nhận file, cài đặt, chạy khi mất mạng ---------- */
+let incoming = [];
+const ALL_ASSETS = ["./", "manifest.json", "fonts.css", "Tinos-Bold.ttf", "Tinos-Regular.ttf", "be-vietnam-pro-latin-400-normal.woff2", "be-vietnam-pro-latin-500-normal.woff2", "be-vietnam-pro-latin-600-normal.woff2", "be-vietnam-pro-latin-700-normal.woff2", "be-vietnam-pro-latin-ext-400-normal.woff2", "be-vietnam-pro-latin-ext-500-normal.woff2", "be-vietnam-pro-latin-ext-600-normal.woff2", "be-vietnam-pro-latin-ext-700-normal.woff2", "be-vietnam-pro-vietnamese-400-normal.woff2", "be-vietnam-pro-vietnamese-500-normal.woff2", "be-vietnam-pro-vietnamese-600-normal.woff2", "be-vietnam-pro-vietnamese-700-normal.woff2", "ibm-plex-mono-latin-400-normal.woff2", "ibm-plex-mono-latin-500-normal.woff2", "apple-touch-icon.png", "favicon-32.png", "icon-192.png", "icon-512.png", "maskable-512.png", "shortcut-96.png", "pdf-lib.min.js", "pdf.min.js", "pdf.worker.min.js", "fontkit.umd.min.js", "jszip.min.js", "xlsx.full.min.js", "pptxgen.bundle.js", "docx-preview.min.js", "html2canvas.min.js", "tesseract.min.js", "worker.min.js", "tesseract-core-simd-lstm.wasm.js", "tesseract-core-lstm.wasm.js", "vie.traineddata.gz"];
+function canShareFile(f) { try { return !!(navigator.canShare && navigator.canShare({ files: [f] })); } catch (e) { return false; } }
+async function shareFile(f) {
+  try { await navigator.share({ files: [f], title: f.name }); }
+  catch (e) { if (e && e.name !== 'AbortError') toast('Không gửi được file, hãy bấm Lưu rồi gửi từ thư mục tải về'); }
+}
+function pickToolFor(files) {
+  const isImg = f => /^image\//.test(f.type) || ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif'].includes(extOf(f.name));
+  const exts = files.map(f => extOf(f.name));
+  if (files.every(isImg)) return 'scan';
+  if (exts.every(e => e === 'pdf')) return files.length > 1 ? 'merge' : 'pdf2word';
+  if (exts.every(e => e === 'docx')) return 'word2pdf';
+  if (exts.every(e => ['xlsx', 'xls', 'xlsm', 'ods', 'csv'].includes(e))) return 'excel2pdf';
+  return null;
+}
+function receiveFiles(files, how) {
+  files = files.filter(f => f && f.size);
+  if (!files.length) return;
+  incoming = files;
+  selectTool(pickToolFor(files) || tool.id);
+  toast(`Đã nhận ${files.length} file ${how}. Chọn công cụ khác trong lưới nếu cần, file sẽ đi theo.`);
+}
+async function readShareInbox() {
+  const params = new URLSearchParams(location.search);
+  if (!params.has('received') || !('caches' in window)) return;
+  try {
+    const cache = await caches.open('xuongpdf-inbox');
+    const files = [];
+    for (const req of await cache.keys()) {
+      const res = await cache.match(req);
+      const name = decodeURIComponent(res.headers.get('x-name') || 'file');
+      files.push(new File([await res.blob()], name, { type: res.headers.get('content-type') || '' }));
+      await cache.delete(req);
+    }
+    history.replaceState(null, '', location.pathname + location.hash);
+    receiveFiles(files, 'từ ứng dụng khác');
+  } catch (e) { /* không có file */ }
+}
+function setupAppShell() {
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  let deferred = null;
+  const installBtn = $('#installBtn');
+  if (standalone) installBtn.hidden = true;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; });
+  window.addEventListener('appinstalled', () => { installBtn.hidden = true; $('#installHelp').hidden = true; toast('Đã cài Xưởng PDF ra màn hình'); precacheAll(true); });
+  installBtn.addEventListener('click', async () => {
+    if (deferred) {
+      deferred.prompt();
+      const r = await deferred.userChoice.catch(() => ({}));
+      deferred = null;
+      if (r.outcome === 'accepted') return;
+    }
+    $('#installHelp').hidden = !$('#installHelp').hidden;
+  });
+  $('#shareAppBtn').addEventListener('click', async () => {
+    const url = new URL('./', location.href).href;
+    const data = { title: 'Xưởng PDF', text: 'Ghép, tách, chuyển đổi PDF và scan giấy tờ ngay trên điện thoại, không cần cài phần mềm:', url };
+    if (navigator.share) { try { await navigator.share(data); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    try { await navigator.clipboard.writeText(url); toast('Đã chép đường dẫn: ' + url); }
+    catch (e) { toast('Đường dẫn ứng dụng: ' + url); }
+  });
+  const precacheAll = async (quiet) => {
+    const btn = $('#offlineBtn'), txt = $('#offlineText');
+    btn.disabled = true;
+    let done = 0;
+    for (const a of ALL_ASSETS) {
+      try { const r = await fetch(a, { cache: quiet ? 'default' : 'reload' }); await r.blob(); } catch (e) { /* bỏ qua */ }
+      txt.textContent = `Đang tải ${++done}/${ALL_ASSETS.length}`;
+    }
+    txt.textContent = 'Xong. Mọi công cụ dùng được cả khi mất mạng.';
+    btn.disabled = false;
+    try { localStorage.setItem('xuongpdf-offline', '1'); } catch (e) { /* */ }
+  };
+  $('#offlineBtn').addEventListener('click', () => precacheAll(false));
+  // Đã cài ra màn hình: tự tải sẵn mọi thứ trong nền để dùng được khi mất mạng
+  let offlineDone = false;
+  try { offlineDone = localStorage.getItem('xuongpdf-offline') === '1'; } catch (e) { /* */ }
+  if (standalone && !offlineDone && navigator.onLine) {
+    (window.requestIdleCallback || (f => setTimeout(f, 3000)))(() => precacheAll(true));
+  }
+  const net = () => { $('#netBadge').hidden = navigator.onLine; };
+  window.addEventListener('online', net); window.addEventListener('offline', net); net();
+  if ('launchQueue' in window) {
+    window.launchQueue.setConsumer(async p => {
+      if (!p.files || !p.files.length) return;
+      receiveFiles(await Promise.all(p.files.map(h => h.getFile())), 'từ máy');
+    });
+  }
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) $('#updateBar').hidden = false; });
+    $('#reloadBtn').addEventListener('click', () => { if (running) { toast('Đợi xử lý xong rồi tải lại'); return; } location.reload(); });
+  }
+  readShareInbox();
+}
+
+/* ---------- wiring ---------- */
+function init() {
+  buildRail();
+  const drop = $('#drop');
+  const input = $('#fileInput');
+  input.addEventListener('change', () => { addFiles(input.files); input.value = ''; });
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files); });
+  window.addEventListener('dragover', e => e.preventDefault());
+  window.addEventListener('drop', e => e.preventDefault());
+  $('#camBtn').addEventListener('click', () => $('#camInput').click());
+  $('#camInput').addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
+  $('#runBtn').addEventListener('click', run);
+  $('#stopBtn').addEventListener('click', () => { cancelFlag = true; $('#pText').textContent = 'Đang dừng sau bước hiện tại'; });
+  $('#zipBtn').addEventListener('click', saveZip);
+  $('#sampleBtn').addEventListener('click', async () => {
+    const btn = $('#sampleBtn');
+    if (!tool.sample || btn.disabled) return;
+    btn.disabled = true;
+    const label = btn.textContent;
+    btn.textContent = 'Đang tạo file mẫu';
+    try { addFiles(await tool.sample()); }
+    catch (e) { showError(e instanceof UserError ? e.message : 'Không tạo được file mẫu: ' + (e && e.message)); }
+    finally { btn.disabled = false; btn.textContent = label; }
+  });
+  const fromHash = (location.hash || '').replace('#', '');
+  selectTool(TOOLS.some(t => t.id === fromHash) ? fromHash : 'merge', true);
+  setupAppShell();
+}
+init();
+})();
+</script>
+</body>
+</html>
