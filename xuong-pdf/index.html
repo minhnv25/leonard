@@ -163,6 +163,28 @@ h1{font-size:26px;line-height:1.2;margin:0;letter-spacing:-.015em;text-wrap:bala
 .drop strong{font-weight:600}
 .drop .muted{color:var(--ink-2);font-size:13.5px}
 .drop .exts{font-family:var(--f-mono);font-size:12px;color:var(--ink-3);margin-top:6px}
+.hist-row-bar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:-4px}
+.hist-row-bar #histInfo{font-size:13.5px;color:var(--ink-2)}
+.hist-row-bar #histInfo.warn{color:var(--accent);font-weight:600}
+.hist-bd{position:fixed;inset:0;z-index:30;background:rgba(24,18,18,.5);display:flex;align-items:center;justify-content:center;padding:16px}
+.hist-box{width:min(640px,100%);max-height:min(88vh,100%);display:flex;flex-direction:column;background:var(--sheet);border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,.28);overflow:hidden}
+.hist-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px}
+.hist-head h2{margin:0;font-size:18px}
+.hist-tabs{display:flex;gap:4px;padding:0 12px;border-bottom:1px solid var(--line)}
+.hist-tab{border:0;background:transparent;padding:10px 10px;font-size:14px;color:var(--ink-2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.hist-tab[aria-selected=true]{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.hist-body{overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;min-height:120px}
+.hist-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 10px;background:var(--sunk);border-radius:10px}
+.hist-row.click{cursor:pointer}
+.hist-th{width:46px;height:62px;object-fit:cover;object-position:top;background:#fff;border:1px solid var(--line);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--ink-3)}
+.hist-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hist-meta{font-size:12.5px;color:var(--ink-2)}
+.hist-btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.hist-btns button,.hist-foot button{min-height:38px;padding:0 12px}
+.hist-empty{margin:18px 6px;color:var(--ink-2);text-align:center}
+.hist-foot{display:flex;justify-content:center;padding-top:4px}
+.hist-note{margin:0;padding:8px 16px 14px;font-size:12px;color:var(--ink-3)}
+@media (max-width:520px){.hist-row{grid-template-columns:auto minmax(0,1fr)}.hist-btns{grid-column:1/-1;justify-content:stretch}.hist-btns button{flex:1}}
 .sample-row{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:13.5px;color:var(--ink-2);margin-top:-8px}
 .linkbtn{background:none;border:0;padding:0;color:var(--accent);font-weight:500;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .linkbtn:hover{color:var(--accent-hover)}
@@ -377,6 +399,7 @@ body.pv-open{overflow:hidden}
         <span>Chưa có file trong tay?</span>
         <button type="button" class="linkbtn" id="sampleBtn">Dùng file mẫu để thử</button>
       </div>
+      <div class="hist-row-bar" id="histRow" hidden><button type="button" class="secondary" id="histBtn">Lịch sử scan</button><span id="histInfo"></span></div>
 
       <ul class="files" id="fileList"></ul>
       <div class="extra" id="extra"></div>
@@ -1826,6 +1849,161 @@ function isConvexQuad(q) {
   }
   return pos === 4 || neg === 4;
 }
+/* ---------- Lịch sử scan: bản chưa hoàn thành (làm tiếp được) và bản đã lưu (tải lại được), lưu ngay trên máy ---------- */
+const HIST_DB = 'scanpdf-history', DONE_LIMIT = 25;
+let histDbP = null;
+function histDb() {
+  if (!histDbP) {
+    histDbP = new Promise((res, rej) => {
+      try {
+        const rq = indexedDB.open(HIST_DB, 1);
+        rq.onupgradeneeded = () => { const d = rq.result; ['drafts', 'done'].forEach(n => d.createObjectStore(n, { keyPath: 'id' })); d.createObjectStore('blobs', { keyPath: 'key' }); };
+        rq.onsuccess = () => res(rq.result);
+        rq.onerror = rq.onblocked = () => rej(rq.error);
+      } catch (e) { rej(e); }
+    }).catch(() => null);
+  }
+  return histDbP;
+}
+async function histTx(store, mode, fn) {
+  const db = await histDb();
+  if (!db) return null;
+  return new Promise(res => {
+    try {
+      const tx = db.transaction(store, mode), r = fn(tx.objectStore(store));
+      tx.oncomplete = () => res(r && 'result' in r ? r.result : true);
+      tx.onerror = tx.onabort = () => res(null);
+    } catch (e) { res(null); }
+  });
+}
+const histPut = (s, v) => histTx(s, 'readwrite', st => st.put(v));
+const histDel = (s, k) => histTx(s, 'readwrite', st => st.delete(k));
+const histGet = (s, k) => histTx(s, 'readonly', st => st.get(k));
+const histAll = async s => (await histTx(s, 'readonly', st => st.getAll())) || [];
+const histCount = async s => (await histTx(s, 'readonly', st => st.count())) || 0;
+const newId = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const fmtWhen = t => { try { return new Date(t).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } };
+let scanDraft = null;     // bản scan đang làm: { id, created, thumb, thumbKey }
+let scanResume = null;    // bản dở vừa được chọn để làm tiếp
+
+async function histThumb(file) {
+  try { const c = await imageToCanvas(file, 160); const b = await canvasBlob(c, 'image/jpeg', 0.7); freeCanvas(c); return b; } catch (e) { return null; }
+}
+async function histRemoveDraft(id) {
+  const d = await histGet('drafts', id);
+  if (d) for (const p of d.pages) await histDel('blobs', p.bkey);
+  await histDel('drafts', id);
+}
+async function histFinish(draftId, res, pages) {      // đã lưu xong PDF: ghi vào "đã hoàn thành" và bỏ bản dở
+  try {
+    const f = res[0];
+    if (f) {
+      await histPut('done', { id: newId('c'), name: f.name, created: Date.now(), pages, size: f.blob.size, thumb: f.thumb || null, pdf: f.blob });
+      const all = (await histAll('done')).sort((a, b) => b.created - a.created);
+      for (const x of all.slice(DONE_LIMIT)) await histDel('done', x.id);
+    }
+    if (draftId) await histRemoveDraft(draftId);
+    items.forEach(it => { it.hstored = false; });
+    scanDraft = null;
+  } catch (e) { /* lịch sử chỉ là phần phụ */ }
+  refreshHistBar();
+}
+async function refreshHistBar() {
+  const row = $('#histRow');
+  if (!row) return;
+  if (!tool || tool.id !== 'scan') { row.hidden = true; return; }
+  if (!(await histDb())) { row.hidden = true; return; }
+  const d = await histCount('drafts'), c = await histCount('done');
+  row.hidden = false;
+  const info = $('#histInfo');
+  info.textContent = d ? `${d} bản chưa hoàn thành` : c ? `${c} bản đã hoàn thành` : 'Chưa có bản scan nào';
+  info.classList.toggle('warn', d > 0);
+}
+async function resumeDraft(id) {
+  if (running) { toast('Đang xử lý, chờ xong rồi mở lại'); return; }
+  const d = await histGet('drafts', id);
+  if (!d) { toast('Không tìm thấy bản scan này'); return; }
+  const wrapped = [];
+  for (const pg of d.pages) {
+    const rec = await histGet('blobs', pg.bkey);
+    if (!rec || !rec.blob) continue;
+    wrapped.push({ file: new File([rec.blob], pg.name, { type: pg.type || rec.blob.type }), name: pg.name, size: pg.size || rec.blob.size, meta: '', range: '', bkey: pg.bkey, hstored: true, scan: { rot: pg.rot || 0, q: pg.q || null } });
+  }
+  if (!wrapped.length) { toast('Ảnh của bản scan này không còn trên máy'); await histRemoveDraft(id); refreshHistBar(); return; }
+  selectTool('scan');
+  items = wrapped; renderFiles();
+  for (const it of wrapped) loadMeta(it);
+  scanResume = d;
+  await openScanStudio();
+}
+function openHistory(tab) {
+  if (document.querySelector('.hist-bd')) return;
+  const state = { tab: tab || null };
+  const urls = [];
+  const tabs = el('div', { class: 'hist-tabs', role: 'tablist' });
+  const body = el('div', { class: 'hist-body' });
+  const bd = el('div', { class: 'hist-bd', onclick: e => { if (e.target === bd) close(); } },
+    el('div', { class: 'hist-box', role: 'dialog', 'aria-label': 'Lịch sử scan' },
+      el('div', { class: 'hist-head' }, el('h2', { text: 'Lịch sử scan' }), el('button', { type: 'button', class: 'ibtn', 'aria-label': 'Đóng', onclick: () => close() }, '×')),
+      tabs, body,
+      el('p', { class: 'hist-note', text: 'Lịch sử lưu ngay trên máy và trình duyệt này, không gửi đi đâu. Xoá dữ liệu trình duyệt thì lịch sử mất. Chỉ giữ 25 bản đã hoàn thành gần nhất.' })));
+  const onKey = e => { if (e.key === 'Escape' && !document.querySelector('.pv-backdrop')) { e.preventDefault(); close(); } };
+  function close() { urls.splice(0).forEach(u => URL.revokeObjectURL(u)); bd.remove(); document.removeEventListener('keydown', onKey, true); refreshHistBar(); }
+  const twoStep = (label, fn, cls) => {
+    const b = el('button', { type: 'button', class: cls || 'ghost', text: label });
+    let t = 0;
+    b.addEventListener('click', e => {
+      e.stopPropagation();
+      if (!t) { b.textContent = 'Bấm lại để xoá'; t = setTimeout(() => { t = 0; b.textContent = label; }, 3000); return; }
+      clearTimeout(t); fn();
+    });
+    return b;
+  };
+  const thumbEl = b => {
+    if (!b) return el('span', { class: 'hist-th empty', text: 'PDF' });
+    const u = URL.createObjectURL(b); urls.push(u);
+    return el('img', { class: 'hist-th', src: u, alt: '' });
+  };
+  async function render() {
+    urls.splice(0).forEach(u => URL.revokeObjectURL(u));
+    const drafts = (await histAll('drafts')).sort((a, b) => b.updated - a.updated);
+    const done = (await histAll('done')).sort((a, b) => b.created - a.created);
+    if (!state.tab) state.tab = drafts.length || !done.length ? 'draft' : 'done';
+    const tb = (k, label) => el('button', { type: 'button', role: 'tab', class: 'hist-tab', 'aria-selected': state.tab === k ? 'true' : 'false', onclick: () => { state.tab = k; render(); } }, label);
+    tabs.replaceChildren(tb('draft', `Chưa hoàn thành (${drafts.length})`), tb('done', `Đã hoàn thành (${done.length})`));
+    const list = state.tab === 'draft' ? drafts : done;
+    body.replaceChildren();
+    if (!list.length) {
+      body.append(el('p', { class: 'hist-empty', text: state.tab === 'draft' ? 'Không có bản scan nào đang làm dở. Mỗi lần bạn thoát giữa chừng, bản scan sẽ được giữ ở đây để làm tiếp.' : 'Chưa có file nào được lưu. Sau khi bấm "Lưu thành PDF", file sẽ hiện ở đây để xem hoặc tải lại.' }));
+      return;
+    }
+    for (const r of list) {
+      if (state.tab === 'draft') {
+        const total = r.pages.reduce((s, p) => s + (p.size || 0), 0);
+        const resumeBtn = el('button', { type: 'button', class: 'primary', onclick: e => { e.stopPropagation(); close(); resumeDraft(r.id); } }, 'Làm tiếp');
+        body.append(el('div', { class: 'hist-row' }, thumbEl(r.thumb),
+          el('div', { class: 'hist-main' }, el('div', { class: 'hist-name', text: `Bản scan dở, ${r.pages.length} trang` }), el('div', { class: 'hist-meta', text: `Cập nhật ${fmtWhen(r.updated)} · ${fmtSize(total)}` })),
+          el('div', { class: 'hist-btns' }, resumeBtn, twoStep('Xoá', async () => { await histRemoveDraft(r.id); if (scanDraft && scanDraft.id === r.id) scanDraft = null; render(); }))));
+      } else {
+        const asRes = { name: r.name, blob: r.pdf, thumb: r.thumb };
+        body.append(el('div', { class: 'hist-row click', tabindex: '0', onclick: () => openPreview(asRes), onkeydown: e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); openPreview(asRes); } } }, thumbEl(r.thumb),
+          el('div', { class: 'hist-main' }, el('div', { class: 'hist-name', text: r.name }), el('div', { class: 'hist-meta', text: `${r.pages} trang · ${fmtSize(r.size)} · ${fmtWhen(r.created)}` })),
+          el('div', { class: 'hist-btns' },
+            el('button', { type: 'button', class: 'secondary', onclick: e => { e.stopPropagation(); saveBlob(r.name, r.pdf); } }, 'Lưu lại'),
+            twoStep('Xoá', async () => { await histDel('done', r.id); render(); }))));
+      }
+    }
+    body.append(el('div', { class: 'hist-foot' }, twoStep(state.tab === 'draft' ? 'Xoá tất cả bản dở' : 'Xoá tất cả bản đã lưu', async () => {
+      if (state.tab === 'draft') for (const r of list) await histRemoveDraft(r.id); else for (const r of list) await histDel('done', r.id);
+      if (state.tab === 'draft') scanDraft = null;
+      render();
+    })));
+  }
+  document.body.append(bd);
+  document.addEventListener('keydown', onKey, true);
+  render();
+}
+
 /* ---------- Scan: cắt ảnh -> xem trước & chọn màu -> lưu ---------- */
 const SVG_ROT_L = '<path d="M2.5 2v6h6"/><path d="M2.7 15.6a10 10 0 1 0 .6-8.4L2.5 8"/>';
 const SVG_ROT_R = '<path d="M21.5 2v6h-6"/><path d="M21.3 15.6a10 10 0 1 1-.6-8.4L21.5 8"/>';
@@ -1918,15 +2096,20 @@ async function openScanStudio(newItems) {
   if (scanStudio) { if (newItems && newItems.length) scanStudio.addPages(newItems); return; }
   if (!items.length) return;
   const prefs = loadScanPrefs();
-  const mkPage = it => ({ it, rot: (it.scan && it.scan.rot) || 0, q: (it.scan && it.scan.q) ? it.scan.q.map(p => p.slice()) : null, ver: 0, thumb: null, thumbKey: '' });
+  const resume = scanResume; scanResume = null;
+  if (resume) scanDraft = { id: resume.id, created: resume.created, thumb: resume.thumb || null, thumbKey: resume.thumbKey || '' };
+  else if (!scanDraft || !items.some(it => it.bkey)) scanDraft = { id: newId('d'), created: Date.now(), thumb: null, thumbKey: '' };
+  const draft = scanDraft; let dead = false;
+  const mkPage = it => { if (!it.bkey) it.bkey = newId('b'); return mk2(it); };
+  const mk2 = it => ({ it, rot: (it.scan && it.scan.rot) || 0, q: (it.scan && it.scan.q) ? it.scan.q.map(p => p.slice()) : null, ver: 0, thumb: null, thumbKey: '' });
   const st = {
     phase: 'crop', idx: 0, alive: true, busy: false, tok: 0, compare: false,
     pages: items.map(mkPage),
     queue: [], qpos: 0,                      // các trang đang đi qua bước cắt
-    mode: 'enhance',                         // luôn bắt đầu bằng "Rõ nét": làm sáng, rõ chữ, bỏ đổ bóng
-    size: prefs.size === 'fit' ? 'fit' : 'a4',
-    stamp: true,                             // chữ ký luôn bật mặc định
-    ocr: !!prefs.ocr,
+    mode: (resume && resume.mode) || 'enhance',                         // luôn bắt đầu bằng "Rõ nét": làm sáng, rõ chữ, bỏ đổ bóng
+    size: (resume ? resume.size : prefs.size) === 'fit' ? 'fit' : 'a4',
+    stamp: resume ? resume.stamp !== false : true,                             // chữ ký luôn bật mặc định
+    ocr: resume ? !!resume.ocr : !!prefs.ocr,
     name: '',
   };
   const dpr = Math.min(2, window.devicePixelRatio || 1), PAD = 16;
@@ -1945,12 +2128,26 @@ async function openScanStudio(newItems) {
     btn('ss-ib sm', SVG_CHEV_L, null, () => onMove(-1), { 'aria-label': 'Ảnh trước', disabled: pos === 0 ? true : null }),
     el('span', { text: `${pos + 1}/${total}` }),
     btn('ss-ib sm', SVG_CHEV_R, null, () => onMove(1), { 'aria-label': 'Ảnh sau', disabled: pos === total - 1 ? true : null })) : '';
-  const setPref = (k, v) => { st[k] = v; const p = loadScanPrefs(); p[k] = v; saveScanPrefs(p); };
+  const setPref = (k, v) => { st[k] = v; const p = loadScanPrefs(); p[k] = v; saveScanPrefs(p); saveDraft(); };
+  let saveTimer = 0;
+  async function saveDraftNow() {                       // tự lưu bản đang làm để thoát giữa chừng vẫn làm tiếp được
+    clearTimeout(saveTimer);
+    if (dead || !st.pages.length) return;
+    try {
+      for (const p of st.pages) if (!p.it.hstored && await histPut('blobs', { key: p.it.bkey, blob: p.it.file })) p.it.hstored = true;
+      const first = st.pages[0];
+      if (draft.thumbKey !== first.it.bkey) { draft.thumb = await histThumb(first.it.file); draft.thumbKey = first.it.bkey; }
+      if (dead) return;
+      await histPut('drafts', { id: draft.id, created: draft.created, updated: Date.now(), mode: st.mode, size: st.size, stamp: st.stamp, ocr: st.ocr, thumb: draft.thumb, thumbKey: draft.thumbKey,
+        pages: st.pages.map(p => ({ bkey: p.it.bkey, name: p.it.name, type: p.it.file.type || '', size: p.it.size || 0, rot: p.rot, q: p.q })) });
+    } catch (e) { /* lịch sử chỉ là phần phụ */ }
+  }
+  const saveDraft = () => { clearTimeout(saveTimer); saveTimer = setTimeout(saveDraftNow, 600); };
 
   /* ===== Bước 1: cắt ảnh, tự lấy 4 góc giấy ===== */
   let base = null, bw = 0, bh = 0, q = null, sc = 1, drag = null, good = null, cv = null;
   const freeBase = () => { if (base) { freeCanvas(base); base = null; } };
-  const syncQ = () => { if (q && base && st.phase === 'crop') st.pages[st.idx].q = q.map(([x, y]) => [x / bw, y / bh]); };
+  const syncQ = () => { if (q && base && st.phase === 'crop') { st.pages[st.idx].q = q.map(([x, y]) => [x / bw, y / bh]); saveDraft(); } };
   function fit() {
     if (!cv || !base) return;
     const aw = Math.max(80, stage.clientWidth - 20 - 2 * PAD), ah = Math.max(80, stage.clientHeight - 20 - 2 * PAD);
@@ -2055,6 +2252,7 @@ async function openScanStudio(newItems) {
       else { p.q = insetQuad(0.02); toast('Chưa tự tìm chắc được 4 góc. Hãy kéo các điểm vào 4 góc tờ giấy.'); }
       p.ver++;
     }
+    saveDraft();
     q = p.q.map(([u, v]) => [u * bw, v * bh]);
     stage.className = 'ss-stage ss-crop';
     stage.replaceChildren(); cv = el('canvas'); stage.append(cv, loupe, busyEl);
@@ -2065,7 +2263,7 @@ async function openScanStudio(newItems) {
   async function rotateCrop(dir) {
     if (st.busy || !base) return;
     const p = st.pages[st.idx]; syncQ();
-    p.rot = (p.rot + dir + 4) % 4; p.q = rotateQuadNorm(p.q, dir); p.ver++;
+    p.rot = (p.rot + dir + 4) % 4; p.q = rotateQuadNorm(p.q, dir); p.ver++; saveDraft();
     const old = base; base = rotateCanvas(old, dir); freeCanvas(old);
     bw = base.width; bh = base.height; q = p.q.map(([u, v]) => [u * bw, v * bh]); fit();
   }
@@ -2179,7 +2377,7 @@ async function openScanStudio(newItems) {
   }
   async function pickFilter(m) {
     if (st.busy || m === st.mode) return;
-    st.mode = m;
+    st.mode = m; saveDraft();
     bottom.querySelectorAll('.ss-filter').forEach(b => b.classList.toggle('on', b.dataset.f === m));
     const tok = ++st.tok; busy('Đang áp dụng…');
     await filtered(m);
@@ -2189,7 +2387,7 @@ async function openScanStudio(newItems) {
   async function rotateLeftEnhance() {
     if (st.busy) return;
     const p = st.pages[st.idx];
-    p.rot = (p.rot + 3) % 4; p.q = rotateQuadNorm(p.q, -1); p.ver++; p.thumbKey = '';
+    p.rot = (p.rot + 3) % 4; p.q = rotateQuadNorm(p.q, -1); p.ver++; p.thumbKey = ''; saveDraft();
     await showEnhance();
   }
   function renderEnhanceChrome() {
@@ -2205,7 +2403,7 @@ async function openScanStudio(newItems) {
     cmp.addEventListener('pointerdown', hold(true)); ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => cmp.addEventListener(t, hold(false)));
     cmp.addEventListener('contextmenu', e => e.preventDefault());
     const stampBtn = btn('ss-act' + (st.stamp ? ' on' : ''), SVG_SIGN, st.stamp ? 'Chữ ký: Bật' : 'Chữ ký: Tắt', () => {
-      st.stamp = !st.stamp; st.pages.forEach(p => { p.thumbKey = ''; });
+      st.stamp = !st.stamp; saveDraft(); st.pages.forEach(p => { p.thumbKey = ''; });
       stampBtn.classList.toggle('on', st.stamp); stampBtn.lastChild.textContent = st.stamp ? 'Chữ ký: Bật' : 'Chữ ký: Tắt'; paintPage();
     }, { 'aria-pressed': 'true' });
     bottom.replaceChildren(filters,
@@ -2236,7 +2434,7 @@ async function openScanStudio(newItems) {
       } catch (e) { p.q = insetQuad(0.02); }
       if (!st.alive) return;
     }
-    st.compare = false; st.idx = i;
+    st.compare = false; st.idx = i; saveDraft();
     await showEnhance();
   }
   async function backToCrop() {
@@ -2252,7 +2450,7 @@ async function openScanStudio(newItems) {
   async function toResult() {
     if (st.busy) return;
     st.tok++; const tok = st.tok;
-    st.phase = 'result'; pageCv = null;
+    st.phase = 'result'; pageCv = null; saveDraft();
     renderResultChrome();
     stage.className = 'ss-stage ss-result';
     stage.replaceChildren(busyEl, loupe);
@@ -2292,7 +2490,7 @@ async function openScanStudio(newItems) {
     if (st.pages.length <= 1) { toast('Cần ít nhất 1 trang. Bấm "Thêm ảnh" nếu muốn đổi ảnh khác.'); return; }
     const p = st.pages[i]; if (p.thumb) freeCanvas(p.thumb);
     const k = items.indexOf(p.it); if (k >= 0) items.splice(k, 1);
-    st.pages.splice(i, 1); renderFiles();
+    st.pages.splice(i, 1); histDel('blobs', p.it.bkey); saveDraft(); renderFiles();
     if (cur) freeCur();
     st.idx = Math.min(st.idx, st.pages.length - 1);
     toResult();
@@ -2340,7 +2538,8 @@ async function openScanStudio(newItems) {
     const name = await askName(defName());
     if (name === null || !st.alive) return;
     st.pages.forEach(p => { p.it.scan = { rot: p.rot, q: p.q }; });
-    tool.studioOpts = { mode: st.mode, size: st.size, stamp: st.stamp, ocr: st.ocr, name, autoSave: true };
+    tool.studioOpts = { mode: st.mode, size: st.size, stamp: st.stamp, ocr: st.ocr, name, autoSave: true, draftId: draft.id };
+    dead = true; clearTimeout(saveTimer);
     close();
     run();
   }
@@ -2351,7 +2550,7 @@ async function openScanStudio(newItems) {
       const fresh = newItems.filter(it => !st.pages.some(p => p.it === it));
       if (!fresh.length) return;
       const startIdx = st.pages.length;
-      fresh.forEach(it => st.pages.push(mkPage(it)));
+      fresh.forEach(it => st.pages.push(mkPage(it))); saveDraft();
       st.tok++; pageCv = null; freeCur(); freeBase();
       stage.className = 'ss-stage'; stage.replaceChildren(busyEl, loupe);
       st.queue = fresh.map((_, k) => startIdx + k); st.qpos = 0;
@@ -2364,6 +2563,7 @@ async function openScanStudio(newItems) {
     if (!st.alive) return;
     st.alive = false; st.tok++;
     syncQ();
+    if (!dead) saveDraftNow().then(refreshHistBar);
     freeBase(); freeCur();
     st.pages.forEach(p => { if (p.thumb) freeCanvas(p.thumb); });
     try { logoBmp && logoBmp.close && logoBmp.close(); } catch (e) { /* */ }
@@ -3278,6 +3478,7 @@ function selectTool(id, skipHash) {
   renderResults();
   showError(null);
   $('#progress').hidden = true;
+  scanDraft = null; refreshHistBar();
   if (incoming.length) { const ok = incoming.filter(acceptFile); if (ok.length) addFiles(ok); }
 }
 function renderOptions() {
@@ -3535,6 +3736,7 @@ async function run() {
     const secs = Math.max(1, Math.round((performance.now() - t0) / 1000));
     renderResults(`${res.info || ''} Mất ${secs} giây.`.trim());
     if (o.autoSave) for (const f of results) await saveBlob(f.name, f.blob);   // Scan: xong là lưu luôn, không thêm bước
+    if (o.autoSave) await histFinish(o.draftId, results, items.length);
     setTimeout(() => { $('#progress').hidden = true; }, 600);
     $('#results').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' });
   } catch (e) {
@@ -3840,6 +4042,7 @@ function init() {
   $('#runBtn').addEventListener('click', () => { if (tool.studio) openScanStudio(); else run(); });
   $('#stopBtn').addEventListener('click', () => { cancelFlag = true; $('#pText').textContent = 'Đang dừng sau bước hiện tại'; });
   $('#zipBtn').addEventListener('click', saveZip);
+  $('#histBtn').addEventListener('click', () => openHistory());
   $('#sampleBtn').addEventListener('click', async () => {
     const btn = $('#sampleBtn');
     if (!tool.sample || btn.disabled) return;
