@@ -1,7 +1,8 @@
 {
  "id": "./",
- "name": "Xưởng PDF",
- "short_name": "Xưởng PDF",
+ "name": "Scan - PDF",
+ "short_name": "Scan - PDF",
+ "author": "Minh Leonard",
  "description": "Ghép, tách, chuyển đổi PDF, scan giấy tờ và nhận dạng chữ tiếng Việt ngay trên máy, không tải file lên mạng.",
  "lang": "vi",
  "start_url": "./",

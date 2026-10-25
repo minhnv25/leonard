@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Xưởng PDF</title>
+<title>Scan - PDF</title>
+<meta name="author" content="Minh Leonard">
 <meta name="description" content="Ghép, tách, chuyển đổi PDF, scan giấy tờ và nhận dạng chữ tiếng Việt ngay trên máy, không tải file lên mạng.">
 <meta name="theme-color" content="#FFFFFF">
 <meta name="color-scheme" content="light only">
@@ -12,10 +13,10 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Xưởng PDF">
+<meta name="apple-mobile-web-app-title" content="Scan - PDF">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Xưởng PDF">
+<meta property="og:title" content="Scan - PDF">
 <meta property="og:description" content="Ghép, tách, chuyển đổi PDF, scan giấy tờ và nhận dạng chữ tiếng Việt ngay trên máy, không tải file lên mạng.">
 <meta property="og:image" content="icon-512.png">
 <link rel="stylesheet" href="fonts.css">
@@ -24,9 +25,9 @@
 :root{color-scheme:light only}
 /* Layout: a rail of tools grouped by job on the left, one working sheet on the right; the rail turns into a scrolling chip row on phones */
 :root{
-  --paper:#FFFFFF; --sheet:#FFFFFF; --sunk:#F3F5F3; --ink:#17202A; --ink-2:#536069; --ink-3:#7A868F;
-  --line:#D8DED6; --line-2:#C2CAC0;
-  --accent:#0A6B63; --accent-hover:#08574F; --accent-ink:#FFFFFF; --accent-soft:#DCEEEA;
+  --paper:#FFFFFF; --sheet:#FFFFFF; --sunk:#F7F5F5; --ink:#1E1A1A; --ink-2:#5C5555; --ink-3:#8A8282;
+  --line:#E6E0E0; --line-2:#D0C8C8;
+  --accent:#C62828; --accent-hover:#A31F1F; --accent-ink:#FFFFFF; --accent-soft:#FDECEC;
   --warn:#7E4D00; --warn-soft:#FAF0DA; --bad:#B3261E; --bad-soft:#FBE8E6; --ok:#1C7A3E;
   --c-pdf:#C8372D; --c-doc:#2B5FB4; --c-xls:#1D7A44; --c-ppt:#C25418; --c-img:#7357B0;
   --shadow:0 1px 2px rgba(23,32,42,.06), 0 6px 24px rgba(23,32,42,.05);
@@ -205,6 +206,10 @@ h1{font-size:26px;line-height:1.2;margin:0;letter-spacing:-.015em;text-wrap:bala
   .rrow .ext{display:none}
   .primary{width:100%}
 }
+
+.credit{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;justify-content:center;color:var(--ink-3);font-size:13px}
+.credit .sig{font-family:"Dancing Script","Segoe Script","Brush Script MT",cursive;font-weight:600;font-size:26px;line-height:1;color:var(--accent);letter-spacing:.01em}
+.brand-by{font-family:"Dancing Script","Segoe Script","Brush Script MT",cursive;font-weight:600;font-size:17px;color:var(--accent);margin-left:6px;white-space:nowrap}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
 .head-actions{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:flex-end}
@@ -226,7 +231,7 @@ h1{font-size:26px;line-height:1.2;margin:0;letter-spacing:-.015em;text-wrap:bala
     <div class="brand">
       <span class="mark" aria-hidden="true"></span>
       <div>
-        <div class="brand-name">Xưởng PDF</div>
+        <div class="brand-name">Scan - PDF<span class="brand-by">by Minh Leonard</span></div>
         <div class="brand-sub">Ghép, tách và chuyển đổi tài liệu văn phòng</div>
       </div>
     </div>
@@ -320,10 +325,11 @@ h1{font-size:26px;line-height:1.2;margin:0;letter-spacing:-.015em;text-wrap:bala
       </details>
     </main>
   </div>
+  <footer class="credit"><span>Scan - PDF · thiết kế bởi</span><span class="sig">Minh Leonard</span></footer>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </div>
 <div id="stage" aria-hidden="true"></div>
-<div class="update-bar" id="updateBar" hidden role="status"><span>Đã có bản mới của Xưởng PDF.</span><button type="button" id="reloadBtn">Tải lại</button></div>
+<div class="update-bar" id="updateBar" hidden role="status"><span>Đã có bản mới của Scan - PDF.</span><button type="button" id="reloadBtn">Tải lại</button></div>
 
 <script>
 (() => {
@@ -2039,7 +2045,7 @@ function selectTool(id, skipHash) {
     work.append(el('div', { class: 'desk-panel', id: 'deskPanel' },
       el('h3', { text: 'Dùng bản máy tính cho việc này' }),
       el('p', { text: 'Bản máy tính chuyển PowerPoint sang PDF bằng chính Microsoft PowerPoint (nếu máy có cài Office) hoặc LibreOffice, nên giữ đúng phông, hình và bố cục như khi bấm Save as PDF.' }),
-      el('p', { text: 'Mở chương trình Xưởng PDF trên máy, chọn thẻ "Sang PDF" rồi thêm file .pptx.' })));
+      el('p', { text: 'Mở chương trình Scan - PDF trên máy, chọn thẻ "Sang PDF" rồi thêm file .pptx.' })));
   }
   const input = $('#fileInput');
   input.multiple = !!tool.multiple;
@@ -2324,7 +2330,7 @@ async function run() {
 
 /* ---------- ứng dụng cài được: chia sẻ file, nhận file, cài đặt, chạy khi mất mạng ---------- */
 let incoming = [];
-const ALL_ASSETS = ["./", "manifest.json", "fonts.css", "Tinos-Bold.ttf", "Tinos-Regular.ttf", "be-vietnam-pro-latin-400-normal.woff2", "be-vietnam-pro-latin-500-normal.woff2", "be-vietnam-pro-latin-600-normal.woff2", "be-vietnam-pro-latin-700-normal.woff2", "be-vietnam-pro-latin-ext-400-normal.woff2", "be-vietnam-pro-latin-ext-500-normal.woff2", "be-vietnam-pro-latin-ext-600-normal.woff2", "be-vietnam-pro-latin-ext-700-normal.woff2", "be-vietnam-pro-vietnamese-400-normal.woff2", "be-vietnam-pro-vietnamese-500-normal.woff2", "be-vietnam-pro-vietnamese-600-normal.woff2", "be-vietnam-pro-vietnamese-700-normal.woff2", "ibm-plex-mono-latin-400-normal.woff2", "ibm-plex-mono-latin-500-normal.woff2", "apple-touch-icon.png", "favicon-32.png", "icon-192.png", "icon-512.png", "maskable-512.png", "shortcut-96.png", "pdf-lib.min.js", "pdf.min.js", "pdf.worker.min.js", "fontkit.umd.min.js", "jszip.min.js", "xlsx.full.min.js", "pptxgen.bundle.js", "docx-preview.min.js", "html2canvas.min.js", "tesseract.min.js", "worker.min.js", "tesseract-core-simd-lstm.wasm.js", "tesseract-core-lstm.wasm.js", "vie.traineddata.gz"];
+const ALL_ASSETS = ["./", "manifest.json", "fonts.css", "dancing-script-latin-600-normal.woff2", "Tinos-Bold.ttf", "Tinos-Regular.ttf", "be-vietnam-pro-latin-400-normal.woff2", "be-vietnam-pro-latin-500-normal.woff2", "be-vietnam-pro-latin-600-normal.woff2", "be-vietnam-pro-latin-700-normal.woff2", "be-vietnam-pro-latin-ext-400-normal.woff2", "be-vietnam-pro-latin-ext-500-normal.woff2", "be-vietnam-pro-latin-ext-600-normal.woff2", "be-vietnam-pro-latin-ext-700-normal.woff2", "be-vietnam-pro-vietnamese-400-normal.woff2", "be-vietnam-pro-vietnamese-500-normal.woff2", "be-vietnam-pro-vietnamese-600-normal.woff2", "be-vietnam-pro-vietnamese-700-normal.woff2", "ibm-plex-mono-latin-400-normal.woff2", "ibm-plex-mono-latin-500-normal.woff2", "apple-touch-icon.png", "favicon-32.png", "icon-192.png", "icon-512.png", "maskable-512.png", "shortcut-96.png", "pdf-lib.min.js", "pdf.min.js", "pdf.worker.min.js", "fontkit.umd.min.js", "jszip.min.js", "xlsx.full.min.js", "pptxgen.bundle.js", "docx-preview.min.js", "html2canvas.min.js", "tesseract.min.js", "worker.min.js", "tesseract-core-simd-lstm.wasm.js", "tesseract-core-lstm.wasm.js", "vie.traineddata.gz"];
 function canShareFile(f) { try { return !!(navigator.canShare && navigator.canShare({ files: [f] })); } catch (e) { return false; } }
 async function shareFile(f) {
   try { await navigator.share({ files: [f], title: f.name }); }
@@ -2368,7 +2374,7 @@ function setupAppShell() {
   const installBtn = $('#installBtn');
   if (standalone) installBtn.hidden = true;
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; });
-  window.addEventListener('appinstalled', () => { installBtn.hidden = true; $('#installHelp').hidden = true; toast('Đã cài Xưởng PDF ra màn hình'); precacheAll(true); });
+  window.addEventListener('appinstalled', () => { installBtn.hidden = true; $('#installHelp').hidden = true; toast('Đã cài Scan - PDF ra màn hình'); precacheAll(true); });
   installBtn.addEventListener('click', async () => {
     if (deferred) {
       deferred.prompt();
@@ -2380,7 +2386,7 @@ function setupAppShell() {
   });
   $('#shareAppBtn').addEventListener('click', async () => {
     const url = new URL('./', location.href).href;
-    const data = { title: 'Xưởng PDF', text: 'Ghép, tách, chuyển đổi PDF và scan giấy tờ ngay trên điện thoại, không cần cài phần mềm:', url };
+    const data = { title: 'Scan - PDF', text: 'Ghép, tách, chuyển đổi PDF và scan giấy tờ ngay trên điện thoại, không cần cài phần mềm:', url };
     if (navigator.share) { try { await navigator.share(data); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
     try { await navigator.clipboard.writeText(url); toast('Đã chép đường dẫn: ' + url); }
     catch (e) { toast('Đường dẫn ứng dụng: ' + url); }

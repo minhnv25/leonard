@@ -1,5 +1,5 @@
-/* Xưởng PDF service worker, phiên bản 20261025-0124 */
-const VERSION = 'xuongpdf-20261025-1210';
+/* Scan - PDF service worker, phiên bản 20261025-1225 */
+const VERSION = 'xuongpdf-20261025-1225';
 const CORE = ["./", "index.html", "manifest.json", "fonts.css", "pdf.min.js", "pdf.worker.min.js", "pdf-lib.min.js", "icon-192.png", "favicon-32.png", "apple-touch-icon.png", "be-vietnam-pro-latin-400-normal.woff2", "be-vietnam-pro-latin-500-normal.woff2", "be-vietnam-pro-latin-600-normal.woff2", "be-vietnam-pro-latin-700-normal.woff2", "be-vietnam-pro-latin-ext-400-normal.woff2", "be-vietnam-pro-latin-ext-500-normal.woff2", "be-vietnam-pro-latin-ext-600-normal.woff2", "be-vietnam-pro-latin-ext-700-normal.woff2", "be-vietnam-pro-vietnamese-400-normal.woff2", "be-vietnam-pro-vietnamese-500-normal.woff2", "be-vietnam-pro-vietnamese-600-normal.woff2", "be-vietnam-pro-vietnamese-700-normal.woff2", "ibm-plex-mono-latin-400-normal.woff2", "ibm-plex-mono-latin-500-normal.woff2"];
 
 self.addEventListener('install', e => {
@@ -8,7 +8,7 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
-    // chỉ dọn bộ nhớ đệm cũ của Xưởng PDF; các ứng dụng khác cùng tên miền giữ nguyên
+    // chỉ dọn bộ nhớ đệm cũ của Scan - PDF; các ứng dụng khác cùng tên miền giữ nguyên
     for (const k of await caches.keys()) if (k.startsWith('xuongpdf-') && k !== VERSION && k !== 'xuongpdf-inbox') await caches.delete(k);
     await self.clients.claim();
   })());
