@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Xưởng PDF</title>
 <meta name="description" content="Ghép, tách, chuyển đổi PDF, scan giấy tờ và nhận dạng chữ tiếng Việt ngay trên máy, không tải file lên mạng.">
-<meta name="theme-color" content="#0A6B63" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0E1417" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FFFFFF">
+<meta name="color-scheme" content="light only">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -21,9 +21,10 @@
 <link rel="stylesheet" href="fonts.css">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <style>
+:root{color-scheme:light only}
 /* Layout: a rail of tools grouped by job on the left, one working sheet on the right; the rail turns into a scrolling chip row on phones */
 :root{
-  --paper:#F2F4F1; --sheet:#FFFFFF; --sunk:#EDF0EC; --ink:#17202A; --ink-2:#536069; --ink-3:#7A868F;
+  --paper:#FFFFFF; --sheet:#FFFFFF; --sunk:#F3F5F3; --ink:#17202A; --ink-2:#536069; --ink-3:#7A868F;
   --line:#D8DED6; --line-2:#C2CAC0;
   --accent:#0A6B63; --accent-hover:#08574F; --accent-ink:#FFFFFF; --accent-soft:#DCEEEA;
   --warn:#7E4D00; --warn-soft:#FAF0DA; --bad:#B3261E; --bad-soft:#FBE8E6; --ok:#1C7A3E;
@@ -31,26 +32,6 @@
   --shadow:0 1px 2px rgba(23,32,42,.06), 0 6px 24px rgba(23,32,42,.05);
   --f-ui:"Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --f-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --paper:#0E1417; --sheet:#151D21; --sunk:#1A2428; --ink:#E2E8EB; --ink-2:#A2AEB5; --ink-3:#7D8A92;
-    --line:#253137; --line-2:#334249;
-    --accent:#45B3A6; --accent-hover:#5EC6B9; --accent-ink:#04211E; --accent-soft:#12302D;
-    --warn:#E3B25E; --warn-soft:#2A2416; --bad:#F08A80; --bad-soft:#331B19; --ok:#6BCB89;
-    --c-pdf:#D9483D; --c-doc:#3F78D0; --c-xls:#2A9A5B; --c-ppt:#D8682C; --c-img:#8B6FD0;
-    --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.25);
-    color-scheme:dark;
-  }
-}
-:root[data-theme="dark"]{
-  --paper:#0E1417; --sheet:#151D21; --sunk:#1A2428; --ink:#E2E8EB; --ink-2:#A2AEB5; --ink-3:#7D8A92;
-  --line:#253137; --line-2:#334249;
-  --accent:#45B3A6; --accent-hover:#5EC6B9; --accent-ink:#04211E; --accent-soft:#12302D;
-  --warn:#E3B25E; --warn-soft:#2A2416; --bad:#F08A80; --bad-soft:#331B19; --ok:#6BCB89;
-    --c-pdf:#D9483D; --c-doc:#3F78D0; --c-xls:#2A9A5B; --c-ppt:#D8682C; --c-img:#8B6FD0;
-  --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.25);
-  color-scheme:dark;
 }
 *{box-sizing:border-box}
 body{background:var(--paper);color:var(--ink);font-family:var(--f-ui);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
