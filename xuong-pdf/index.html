@@ -138,7 +138,11 @@ body.ss-open{overflow:hidden}
 .ss-tc canvas{display:block;width:100%;height:100%;object-fit:contain}
 .ss-mv{position:absolute;bottom:7px;width:34px;height:30px;border:0;border-radius:8px;background:#2a2323;color:#f3efef;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
 .ss-mv.l{left:8px}.ss-mv.r{right:8px}.ss-mv svg{width:18px;height:18px}.ss-mv:disabled{opacity:.28;cursor:default}.ss-mv:not(:disabled):active{background:#4a3a3a}
-.ss-tile .ss-tl{padding:0 38px;min-height:30px;display:flex;align-items:center}
+.ss-tile .ss-tl{min-height:22px;display:flex;align-items:center}
+.ss-tile{-webkit-touch-callout:none}
+.ss-ghost{position:fixed;z-index:30;margin:0;pointer-events:none;opacity:.94;transform:scale(1.06);box-shadow:0 10px 30px rgba(0,0,0,.6);border-color:#ff5a50}
+.ss-dragging{opacity:.25}
+.ss-draghint{grid-column:1/-1;text-align:center;font-size:12.5px;color:#8f8585;padding:2px 0 8px}
 .ss-actions{display:flex;gap:10px;margin-top:8px}.ss-actions .ss-save{margin-top:0;flex:1.4;width:auto}
 .ss-preview{flex:1;height:50px;border:1px solid #5a4d4d;border-radius:12px;background:transparent;color:#f3efef;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
 .ss-preview svg{width:21px;height:21px}.ss-preview:active{background:#2a2323}
@@ -2060,6 +2064,7 @@ function openHistory(tab) {
 /* ---------- Scan: cắt ảnh -> xem trước & chọn màu -> lưu ---------- */
 const isImageItem = it => /^image\//.test(it.file.type) || ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif'].includes(extOf(it.name));
 const studioMode = () => !!tool.studio && items.length > 0 && items.every(isImageItem);   // OCR + PDF: chạy thẳng, không qua màn hình scan
+const IS_TOUCH = (navigator.maxTouchPoints || 0) > 0 && matchMedia('(pointer: coarse)').matches;
 const SVG_ROT_L = '<path d="M2.5 2v6h6"/><path d="M2.7 15.6a10 10 0 1 0 .6-8.4L2.5 8"/>';
 const SVG_ROT_R = '<path d="M21.5 2v6h-6"/><path d="M21.3 15.6a10 10 0 1 1-.6-8.4L21.5 8"/>';
 const SVG_FULL = '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>';
@@ -2535,15 +2540,13 @@ async function openScanStudio(newItems) {
     const tiles = st.pages.map((p, i) => {
       const holder = el('span', { class: 'ss-tc' }, el('span', { class: 'ss-spin', text: '…' }));
       const del = btn('ss-del', SVG_TRASH, null, e => { e.stopPropagation(); removePage(i); }, { 'aria-label': `Xoá trang ${i + 1}` });
-      const last = st.pages.length - 1;
-      const mvL = btn('ss-mv l', SVG_LEFT, null, e => { e.stopPropagation(); movePage(i, -1); }, { 'aria-label': `Đưa trang ${i + 1} lên trước`, title: 'Đưa lên trước' });
-      const mvR = btn('ss-mv r', SVG_RIGHT, null, e => { e.stopPropagation(); movePage(i, 1); }, { 'aria-label': `Đưa trang ${i + 1} ra sau`, title: 'Đưa ra sau' });
-      mvL.disabled = i === 0; mvR.disabled = i === last;
-      const t = el('button', { type: 'button', class: 'ss-tile', onclick: () => { st.idx = i; showEnhance(); }, 'aria-label': `Sửa trang ${i + 1}` }, holder, el('span', { class: 'ss-tl', text: `Trang ${i + 1}` }), del, mvL, mvR);
+      const t = el('button', { type: 'button', class: 'ss-tile', onclick: () => { if (grid.dataset.dragged) return; st.idx = i; showEnhance(); }, 'aria-label': `Sửa trang ${i + 1}`, title: 'Bấm để sửa, giữ rồi kéo để đổi thứ tự' }, holder, el('span', { class: 'ss-tl', text: `Trang ${i + 1}` }), del);
       grid.append(t);
       return holder;
     });
     grid.append(el('button', { type: 'button', class: 'ss-tile ss-addtile', onclick: addMore }, svgIcon(SVG_PLUS), el('span', { text: 'Thêm ảnh' })));
+    if (st.pages.length > 1) grid.prepend(el('div', { class: 'ss-draghint', text: IS_TOUCH ? 'Giữ lâu một trang rồi kéo để đổi thứ tự' : 'Nhấn giữ chuột vào trang rồi kéo để đổi thứ tự' }));
+    dragSort(grid);
     await ensureLogo();
     for (let i = 0; i < st.pages.length; i++) {
       if (tok !== st.tok || !st.alive) return;
@@ -2566,14 +2569,78 @@ async function openScanStudio(newItems) {
       await sleep(0);
     }
   }
-  function movePage(i, d) {                       // đổi chỗ trang: thứ tự trong PDF theo đúng thứ tự trên màn hình
-    const j = i + d;
-    if (st.busy || j < 0 || j >= st.pages.length) return;
-    [st.pages[i], st.pages[j]] = [st.pages[j], st.pages[i]];
-    const set = new Set(st.pages.map(p => p.it));
-    items = st.pages.map(p => p.it).concat(items.filter(x => !set.has(x)));
-    if (st.idx === i) st.idx = j; else if (st.idx === j) st.idx = i;
+  function movePageTo(from, to) {                 // đổi thứ tự trang: thứ tự trong PDF theo đúng thứ tự trên màn hình
+    if (st.busy || from === to || from < 0 || to < 0 || from >= st.pages.length || to >= st.pages.length) return;
+    const curPage = st.pages[st.idx];
+    const [p] = st.pages.splice(from, 1); st.pages.splice(to, 0, p);
+    const set = new Set(st.pages.map(x => x.it));
+    items = st.pages.map(x => x.it).concat(items.filter(x => !set.has(x)));
+    st.idx = Math.max(0, st.pages.indexOf(curPage));
     saveDraft(); renderFiles(); toResult();
+  }
+  /* Kéo thả trang: điện thoại giữ lâu (khoảng 0,4 giây) rồi kéo; chuột nhấn giữ rồi kéo. Thả ra là đổi thứ tự. */
+  function dragSort(grid) {
+    let d = null;
+    const tiles = () => [...grid.querySelectorAll('.ss-tile:not(.ss-addtile)')];
+    const relabel = () => tiles().forEach((t, k) => { const l = t.querySelector('.ss-tl'); if (l) l.textContent = `Trang ${k + 1}`; });
+    const cancel = () => { if (d) { clearTimeout(d.timer); d = null; } };
+    function begin() {
+      if (!d || d.started) return;
+      d.started = true;
+      const r = d.t.getBoundingClientRect();
+      d.ox = d.x - r.left; d.oy = d.y - r.top;
+      const g = d.t.cloneNode(true);
+      const src = d.t.querySelector('canvas'), dst = g.querySelector('canvas');
+      if (src && dst) dst.getContext('2d').drawImage(src, 0, 0);
+      g.classList.add('ss-ghost'); g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
+      g.style.left = r.left + 'px'; g.style.top = r.top + 'px';
+      root.append(g); d.g = g;
+      d.t.classList.add('ss-dragging');
+      try { navigator.vibrate && navigator.vibrate(15); } catch (e) { /* */ }
+    }
+    function moveTo(x, y) {
+      d.g.style.left = (x - d.ox) + 'px'; d.g.style.top = (y - d.oy) + 'px';
+      const els = tiles(); let best = -1, bd = Infinity;
+      els.forEach((t, k) => { const r = t.getBoundingClientRect(); const dd = (r.left + r.width / 2 - x) ** 2 + (r.top + r.height / 2 - y) ** 2; if (dd < bd) { bd = dd; best = k; } });
+      const cur = els.indexOf(d.t);
+      if (best >= 0 && best !== cur) { const ref = els[best]; if (best > cur) ref.after(d.t); else ref.before(d.t); relabel(); }
+      const sr = stage.getBoundingClientRect();
+      if (y < sr.top + 56) stage.scrollTop -= 14; else if (y > sr.bottom - 56) stage.scrollTop += 14;
+    }
+    grid.addEventListener('pointerdown', e => {
+      const t = e.target.closest('.ss-tile');
+      if (!t || t.classList.contains('ss-addtile') || e.target.closest('.ss-del') || st.busy || (e.button != null && e.button !== 0)) return;
+      cancel();
+      d = { t, from: tiles().indexOf(t), pid: e.pointerId, sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, started: false, touch: e.pointerType !== 'mouse' };
+      if (d.touch) d.timer = setTimeout(begin, 400);
+    });
+    grid.addEventListener('pointermove', e => {
+      if (!d || e.pointerId !== d.pid) return;
+      d.x = e.clientX; d.y = e.clientY;
+      const dist = Math.hypot(e.clientX - d.sx, e.clientY - d.sy);
+      if (!d.started) {
+        if (d.touch) { if (dist > 10) cancel(); return; }      // ngón tay lướt trước khi giữ đủ lâu: là cuộn trang
+        if (dist < 6) return;
+        begin();
+      }
+      e.preventDefault(); moveTo(e.clientX, e.clientY);
+    });
+    const end = e => {
+      if (!d || (e && e.pointerId !== d.pid)) return;
+      clearTimeout(d.timer);
+      if (d.started) {
+        const to = tiles().indexOf(d.t), from = d.from;
+        d.g.remove(); d.t.classList.remove('ss-dragging');
+        grid.dataset.dragged = '1'; setTimeout(() => { delete grid.dataset.dragged; }, 80);
+        d = null;
+        if (to !== from) movePageTo(from, to);
+        return;
+      }
+      d = null;
+    };
+    grid.addEventListener('pointerup', end); grid.addEventListener('pointercancel', e => { if (d && d.started) end(e); else cancel(); });
+    grid.addEventListener('touchmove', e => { if (d && d.started) e.preventDefault(); }, { passive: false });
+    grid.addEventListener('contextmenu', e => { if (d) e.preventDefault(); });
   }
   function removePage(i) {
     if (st.pages.length <= 1) { toast('Cần ít nhất 1 trang. Bấm "Thêm ảnh" nếu muốn đổi ảnh khác.'); return; }
