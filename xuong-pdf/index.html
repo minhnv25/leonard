@@ -116,7 +116,16 @@ body.ss-open{overflow:hidden}
 .ss-save{width:100%;height:50px;margin-top:8px;border:0;border-radius:12px;background:#C62828;color:#fff;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer}
 .ss-save svg{width:22px;height:22px}
 .ss-save:active{background:#a82020}
-.ss-busy{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(19,16,16,.62);font-size:14px;color:#f3efef;z-index:3;text-align:center;padding:0 24px}
+.ss-busy{position:absolute;inset:0;display:none;align-items:flex-end;justify-content:center;background:rgba(19,16,16,.16);overflow:hidden;z-index:3;text-align:center;padding:0 20px 18px;pointer-events:auto}
+.ss-busy::before,.ss-busy::after{content:"";position:absolute;top:-8%;bottom:-8%;left:0;width:62%;pointer-events:none;will-change:transform;
+  background:linear-gradient(100deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.10) 28%,rgba(255,255,255,.30) 50%,rgba(255,255,255,.10) 72%,rgba(255,255,255,0) 100%);
+  filter:blur(6px);transform:translateX(-120%) skewX(-14deg);animation:ssWave 2.4s cubic-bezier(.45,.05,.55,.95) infinite}
+.ss-busy::after{width:36%;opacity:.7;animation-duration:3.1s;animation-delay:.7s}
+@keyframes ssWave{0%{transform:translateX(-120%) skewX(-14deg)}100%{transform:translateX(300%) skewX(-14deg)}}
+.ss-busy-t{position:relative;z-index:1;max-width:100%;padding:8px 16px;border-radius:999px;background:rgba(20,15,15,.74);color:#f3efef;font-size:13.5px;line-height:1.35;box-shadow:0 2px 14px rgba(0,0,0,.3);animation:ssPulse 2.4s ease-in-out infinite}
+@keyframes ssPulse{0%,100%{opacity:.86}50%{opacity:1}}
+.ss-ph,.ss-ghost{display:block;max-width:100%;max-height:100%;object-fit:contain;border-radius:2px;box-shadow:0 2px 16px rgba(0,0,0,.35)}
+@media (prefers-reduced-motion:reduce){.ss-busy::before,.ss-busy::after,.ss-busy-t{animation:none}.ss-busy::before{transform:translateX(60%) skewX(-14deg)}.ss-busy::after{display:none}}
 .ss-loupe{position:absolute;width:112px;height:112px;border-radius:50%;border:3px solid #ff5a50;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.5);pointer-events:none;display:none;overflow:hidden;z-index:2}
 .ss-loupe canvas{display:block;width:100%;height:100%;cursor:default}
 .ss-dlg{position:absolute;inset:0;z-index:20;background:rgba(10,7,7,.7);display:flex;align-items:center;justify-content:center;padding:16px}
@@ -2148,7 +2157,7 @@ async function openScanStudio(newItems) {
   const niceBase = n => { const b = safeName(baseName(n)); return (/^\d{10,}/.test(b) || (b.length > 14 && b.replace(/\D/g, '').length / b.length > 0.8)) ? stampName() : b; };
   const defName = () => toolId === 'ocr' ? (st.pages.length === 1 ? niceBase(st.pages[0].it.name) + '_co_chu' : `Ban_co_chu_${st.pages.length}_trang`) : (st.pages.length === 1 ? niceBase(st.pages[0].it.name) + '_scan' : `Ban_scan_${st.pages.length}_trang`);
 
-  const busy = msg => { st.busy = !!msg; busyEl.textContent = msg || ''; busyEl.style.display = msg ? 'flex' : 'none'; root.classList.toggle('is-busy', !!msg); };
+  const busy = msg => { st.busy = !!msg; busyEl.replaceChildren(...(msg ? [el('span', { class: 'ss-busy-t', text: msg })] : [])); busyEl.style.display = msg ? 'flex' : 'none'; root.classList.toggle('is-busy', !!msg); };
   const btn = (cls, icon, label, fn, attrs = {}) => el('button', { type: 'button', class: cls, onclick: fn, ...attrs }, svgIcon(icon), label ? el('span', { text: label }) : null);
   const pager = (pos, total, onMove) => total > 1 ? el('div', { class: 'ss-pager' },
     btn('ss-ib sm', SVG_CHEV_L, null, () => onMove(-1), { 'aria-label': 'Ảnh trước', disabled: pos === 0 ? true : null }),
@@ -2259,17 +2268,45 @@ async function openScanStudio(newItems) {
     await sleep(40);
     try { return findPageCorners(canvas); } catch (e) { return null; }
   }
+  function ghostFromCrop() {                   // chụp lại ảnh đang hiện (không kèm khung góc) để không bị trống khi chuyển bước
+    if (!cv || !base) return null;
+    try {
+      const g = document.createElement('canvas'); g.className = 'ss-ghost';
+      g.width = Math.max(1, Math.round(bw * sc * dpr)); g.height = Math.max(1, Math.round(bh * sc * dpr));
+      g.getContext('2d').drawImage(base, 0, 0, g.width, g.height);
+      g.style.width = Math.round(bw * sc) + 'px'; g.style.height = Math.round(bh * sc) + 'px';
+      return g;
+    } catch (e) { return null; }
+  }
   async function loadCrop(i) {
     st.phase = 'crop'; st.idx = i; freeBase(); q = null;
     renderCropChrome();
-    busy('Đang mở ảnh…');
     const p = st.pages[i];
+    stage.className = 'ss-stage ss-crop'; stage.replaceChildren();
+    let phUrl = null;                           // hiện ngay ảnh vừa tải lên trong lúc app đọc và tìm góc
+    if (!p.rot) {
+      try {
+        phUrl = URL.createObjectURL(p.it.file);
+        const ph = el('img', { class: 'ss-ph', src: phUrl, alt: '' });
+        ph.onerror = () => ph.remove();
+        stage.append(ph);
+      } catch (e) { phUrl = null; }
+    }
+    stage.append(loupe, busyEl);
+    const dropPh = () => { if (phUrl) { try { URL.revokeObjectURL(phUrl); } catch (e) {} phUrl = null; } };
+    busy('Đang mở ảnh…');
     let raw;
     try { raw = await imageToCanvas(p.it.file, 1600); }
-    catch (e) { busy(null); toast(e instanceof UserError ? e.message : 'Không mở được ảnh này'); return; }
-    if (!st.alive || st.idx !== i || st.phase !== 'crop') { freeCanvas(raw); return; }
+    catch (e) { dropPh(); busy(null); toast(e instanceof UserError ? e.message : 'Không mở được ảnh này'); return; }
+    if (!st.alive || st.idx !== i || st.phase !== 'crop') { dropPh(); freeCanvas(raw); return; }
     base = rotateCanvas(raw, p.rot); if (base !== raw) freeCanvas(raw);
     bw = base.width; bh = base.height;
+    q = p.q ? p.q.map(([u, v]) => [u * bw, v * bh]) : null;
+    stage.className = 'ss-stage ss-crop';        // dựng khung ảnh thật ngay, góc tìm xong mới vẽ lên sau
+    stage.replaceChildren(); cv = el('canvas'); stage.append(cv, loupe, busyEl);
+    cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove);
+    cv.addEventListener('pointerup', onUp); cv.addEventListener('pointercancel', onUp);
+    dropPh(); fit();
     if (!p.q) {
       busy('Đang tự tìm 4 góc tờ giấy…');
       const r = await detect(base);
@@ -2277,14 +2314,10 @@ async function openScanStudio(newItems) {
       if (r) p.q = r.map(([x, y]) => [x / bw, y / bh]);
       else { p.q = insetQuad(0.02); toast('Chưa tự tìm chắc được 4 góc. Hãy kéo các điểm vào 4 góc tờ giấy.'); }
       p.ver++;
+      q = p.q.map(([u, v]) => [u * bw, v * bh]);
     }
     saveDraft();
-    q = p.q.map(([u, v]) => [u * bw, v * bh]);
-    stage.className = 'ss-stage ss-crop';
-    stage.replaceChildren(); cv = el('canvas'); stage.append(cv, loupe, busyEl);
-    cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove);
-    cv.addEventListener('pointerup', onUp); cv.addEventListener('pointercancel', onUp);
-    busy(null); fit();
+    busy(null); draw();
   }
   async function rotateCrop(dir) {
     if (st.busy || !base) return;
@@ -2365,6 +2398,7 @@ async function openScanStudio(newItems) {
     if (!src) return;
     const c = composePage(src, st.size, st.stamp ? logoBmp : null, logo, 1400);
     if (pageCv) pageCv.remove();
+    stage.querySelectorAll('.ss-ghost,.ss-ph').forEach(n => n.remove());
     pageCv = c; stage.className = 'ss-stage ss-page'; stage.prepend(c); fitPage(c);
   }
   async function ensureLogo() {
@@ -2452,8 +2486,8 @@ async function openScanStudio(newItems) {
     st.idx = j; await showEnhance();
   }
   async function enterEnhance(i) {
-    syncQ(); freeBase(); cv = null;
-    stage.className = 'ss-stage'; stage.replaceChildren(busyEl, loupe);
+    syncQ(); const gh = ghostFromCrop(); freeBase(); cv = null;
+    stage.className = 'ss-stage'; stage.replaceChildren(...(gh ? [gh] : []), busyEl, loupe);
     const todo = st.pages.filter(p => !p.q);
     for (let k = 0; k < todo.length; k++) {      // ảnh chưa xem ở bước cắt: tự tìm góc
       const p = todo[k];
