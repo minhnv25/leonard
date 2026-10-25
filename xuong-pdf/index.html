@@ -268,6 +268,7 @@ h1{font-size:26px;line-height:1.2;margin:0;letter-spacing:-.015em;text-wrap:bala
 .ext.zip,.ext.png,.ext.jpg{color:var(--ink-2)}
 .rname{font-weight:500;overflow-wrap:anywhere;line-height:1.35}
 .rmeta{font-family:var(--f-mono);font-size:12px;color:var(--ink-3)}
+.rprev,.pv-img{background-image:repeating-conic-gradient(#e9e4e4 0 25%,#fff 0 50%);background-size:14px 14px}
 .rprev{display:block;max-height:64px;max-width:100%;margin-top:6px;border:1px solid var(--line);border-radius:3px;background:#fff}
 .rinfo{font-size:13px;color:var(--ink-2)}
 
@@ -479,6 +480,7 @@ const CDN = {
   pptx: 'pptxgen.bundle.js',
   docxPreview: 'docx-preview.min.js',
   h2c: 'html2canvas.min.js',
+  ort: 'ort.wasm.min.js',
   tess: 'tesseract.min.js',
 };
 const ASSET = {
@@ -2841,6 +2843,128 @@ async function sampleImages() {
 const OCR_OPT = { id: 'ocr', label: 'Nhận dạng chữ (OCR)', type: 'select', value: 'auto', choices: [['auto', 'Tự động'], ['always', 'Luôn nhận dạng (file scan)'], ['off', 'Tắt']], hint: 'Tự động: chỉ nhận dạng trang không có chữ sẵn. Mỗi trang mất vài giây.' };
 const PAGES_OPT = { id: 'pages', label: 'Trang cần lấy', type: 'text', placeholder: 'Để trống = tất cả, ví dụ 1-3, 5' };
 
+/* ===== Xoá phông nền: mô hình U²-Net nhỏ (4,5 MB) chạy ngay trong trình duyệt, ảnh không gửi đi đâu =====
+   Mô hình chỉ nhìn bản thu nhỏ 320×320 để biết đâu là vật thể. Vùng nền sau đó được tinh chỉnh theo từng điểm ảnh của
+   ảnh gốc (guided filter), nên viền bám đúng nét thật và ảnh ra giữ nguyên độ phân giải. */
+const RMBG = (() => {
+  const MODEL = 'u2netp.onnx', SIDE = 320, LOW = 800, MAX_PIXELS = 16.7e6;
+  let sessP = null;
+  async function session(ui) {
+    if (!sessP) sessP = (async () => {
+      ui && ui.step('Đang tải bộ xoá phông (lần đầu khoảng 15 MB, các lần sau dùng bản đã lưu)', 0.02);
+      await need('ort');
+      const ort = window.ort;
+      ort.env.wasm.numThreads = 1; ort.env.wasm.proxy = false;
+      ort.env.wasm.wasmPaths = new URL('./', location.href).href;
+      let bytes;
+      try {
+        const r = await fetch(new URL(MODEL, location.href).href);
+        if (!r.ok) throw new Error('http ' + r.status);
+        bytes = new Uint8Array(await r.arrayBuffer());
+      } catch (e) { throw new UserError('Không tải được mô hình xoá phông. Kiểm tra kết nối mạng rồi thử lại.'); }
+      try { return await ort.InferenceSession.create(bytes, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' }); }
+      catch (e) { console.error(e); throw new UserError('Trình duyệt này không chạy được bộ xoá phông. Thử Chrome hoặc Safari bản mới, hoặc dùng bản máy tính.'); }
+    })().catch(e => { sessP = null; throw e; });
+    return sessP;
+  }
+  const smooth = (x, a, b) => { const t = x <= a ? 0 : x >= b ? 1 : (x - a) / (b - a); return t * t * (3 - 2 * t); };
+  // lọc trung bình theo cửa sổ (2r+1), biên lấy phần có thật
+  function box(src, w, h, r, out) {
+    const tmp = new Float32Array(w * h);
+    for (let y = 0; y < h; y++) {
+      const o = y * w; let s = 0, n = 0;
+      for (let x = 0; x <= Math.min(r, w - 1); x++) { s += src[o + x]; n++; }
+      for (let x = 0; x < w; x++) {
+        tmp[o + x] = s / n;
+        const add = x + r + 1, rem = x - r;
+        if (add < w) { s += src[o + add]; n++; }
+        if (rem >= 0) { s -= src[o + rem]; n--; }
+      }
+    }
+    for (let x = 0; x < w; x++) {
+      let s = 0, n = 0;
+      for (let y = 0; y <= Math.min(r, h - 1); y++) { s += tmp[y * w + x]; n++; }
+      for (let y = 0; y < h; y++) {
+        out[y * w + x] = s / n;
+        const add = y + r + 1, rem = y - r;
+        if (add < h) { s += tmp[add * w + x]; n++; }
+        if (rem >= 0) { s -= tmp[rem * w + x]; n--; }
+      }
+    }
+    return out;
+  }
+  /* canvas: ảnh gốc (giữ nguyên kích thước). Trả về canvas RGBA cùng kích thước, nền đã xoá (hoặc thay bằng màu bg). */
+  async function run(canvas, opt, ui, label) {
+    const W = canvas.width, H = canvas.height;
+    const sess = await session(ui);
+    ui.check();
+    // 1) mô hình nhìn bản 320×320
+    ui.sub(`${label} · nhận diện vật thể`, 0.1); await sleep(0);
+    const sm = document.createElement('canvas'); sm.width = sm.height = SIDE;
+    const sctx = sm.getContext('2d', { willReadFrequently: true }); sctx.imageSmoothingQuality = 'high'; sctx.drawImage(canvas, 0, 0, SIDE, SIDE);
+    const px = sctx.getImageData(0, 0, SIDE, SIDE).data;
+    let mx = 1; for (let i = 0; i < px.length; i += 4) { if (px[i] > mx) mx = px[i]; if (px[i + 1] > mx) mx = px[i + 1]; if (px[i + 2] > mx) mx = px[i + 2]; }
+    const N = SIDE * SIDE, inp = new Float32Array(3 * N), mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225];
+    for (let i = 0; i < N; i++) for (let c = 0; c < 3; c++) inp[c * N + i] = (px[i * 4 + c] / mx - mean[c]) / std[c];
+    const feeds = { [sess.inputNames[0]]: new window.ort.Tensor('float32', inp, [1, 3, SIDE, SIDE]) };
+    ui.sub(`${label} · nhận diện vật thể`, 0.25); await sleep(0);
+    const res = await sess.run(feeds);
+    const out = res[sess.outputNames[0]].data;
+    let lo = Infinity, hi = -Infinity; for (let i = 0; i < N; i++) { const v = out[i]; if (v < lo) lo = v; if (v > hi) hi = v; }
+    const m320 = new Uint8ClampedArray(N * 4);
+    for (let i = 0; i < N; i++) { const v = Math.round(255 * (out[i] - lo) / (hi - lo + 1e-8)); m320[i * 4] = m320[i * 4 + 1] = m320[i * 4 + 2] = v; m320[i * 4 + 3] = 255; }
+    sctx.putImageData(new ImageData(m320, SIDE, SIDE), 0, 0);
+    ui.check();
+    // 2) tinh chỉnh theo ảnh gốc ở độ phân giải trung gian (nhanh), áp dụng lên từng điểm ảnh gốc
+    ui.sub(`${label} · làm sạch viền theo ảnh gốc`, 0.4); await sleep(0);
+    const k = Math.max(W, H) / LOW, ws = Math.max(8, Math.round(W / Math.max(1, k))), hs = Math.max(8, Math.round(H / Math.max(1, k)));
+    const lc = document.createElement('canvas'); lc.width = ws; lc.height = hs;
+    const lctx = lc.getContext('2d', { willReadFrequently: true }); lctx.imageSmoothingQuality = 'high';
+    lctx.drawImage(canvas, 0, 0, ws, hs);
+    const ld = lctx.getImageData(0, 0, ws, hs).data, n = ws * hs, I = new Float32Array(n), P = new Float32Array(n);
+    for (let i = 0; i < n; i++) I[i] = (0.299 * ld[i * 4] + 0.587 * ld[i * 4 + 1] + 0.114 * ld[i * 4 + 2]) / 255;
+    lctx.drawImage(sm, 0, 0, ws, hs);
+    const md = lctx.getImageData(0, 0, ws, hs).data;
+    for (let i = 0; i < n; i++) P[i] = md[i * 4] / 255;
+    const r = Math.max(2, Math.round(0.01 * Math.max(ws, hs))), eps = 1e-3;
+    const t1 = new Float32Array(n), t2 = new Float32Array(n);
+    const mI = box(I, ws, hs, r, new Float32Array(n)), mP = box(P, ws, hs, r, new Float32Array(n));
+    for (let i = 0; i < n; i++) t1[i] = I[i] * P[i];
+    const cIP = box(t1, ws, hs, r, new Float32Array(n));
+    for (let i = 0; i < n; i++) t2[i] = I[i] * I[i];
+    const cII = box(t2, ws, hs, r, new Float32Array(n));
+    const A = new Float32Array(n), B = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const a = (cIP[i] - mI[i] * mP[i]) / (cII[i] - mI[i] * mI[i] + eps); A[i] = a; B[i] = mP[i] - a * mI[i]; }
+    const mA = box(A, ws, hs, r, new Float32Array(n)), mB = box(B, ws, hs, r, new Float32Array(n));
+    ui.check();
+    // 3) tạo ảnh kết quả ở độ phân giải gốc
+    const outC = document.createElement('canvas'); outC.width = W; outC.height = H;
+    const octx = outC.getContext('2d', { willReadFrequently: true }); octx.drawImage(canvas, 0, 0);
+    const img = octx.getImageData(0, 0, W, H), d = img.data;
+    const [e0, e1] = { soft: [0.05, 0.95], normal: [0.15, 0.85], sharp: [0.3, 0.7] }[opt.edge] || [0.15, 0.85];
+    const bg = opt.bg || null;                                        // null = trong suốt
+    const x0 = new Int32Array(W), fx = new Float32Array(W);
+    for (let x = 0; x < W; x++) { const u = Math.min(ws - 1, Math.max(0, (x + 0.5) * ws / W - 0.5)); x0[x] = Math.min(ws - 2, Math.floor(u)); fx[x] = u - x0[x]; }
+    for (let y = 0; y < H; y++) {
+      const v = Math.min(hs - 1, Math.max(0, (y + 0.5) * hs / H - 0.5)), y0 = Math.min(hs - 2, Math.floor(v)), fy = v - y0, r0 = y0 * ws, r1 = r0 + ws;
+      for (let x = 0; x < W; x++) {
+        const a = x0[x], f = fx[x], g = 1 - f, h2 = 1 - fy;
+        const ma = (mA[r0 + a] * g + mA[r0 + a + 1] * f) * h2 + (mA[r1 + a] * g + mA[r1 + a + 1] * f) * fy;
+        const mb = (mB[r0 + a] * g + mB[r0 + a + 1] * f) * h2 + (mB[r1 + a] * g + mB[r1 + a + 1] * f) * fy;
+        const i = (y * W + x) * 4;
+        const lum = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255;
+        const al = smooth(ma * lum + mb, e0, e1);
+        if (bg) { d[i] = d[i] * al + bg[0] * (1 - al); d[i + 1] = d[i + 1] * al + bg[1] * (1 - al); d[i + 2] = d[i + 2] * al + bg[2] * (1 - al); d[i + 3] = 255; }
+        else d[i + 3] = Math.round(al * 255);
+      }
+      if ((y & 255) === 255) { ui.sub(`${label} · xoá phông`, 0.55 + 0.4 * y / H); await sleep(0); ui.check(); }
+    }
+    octx.putImageData(img, 0, 0);
+    return outC;
+  }
+  return { run, MAX_PIXELS };
+})();
+
 const TOOLS = [
   {
     id: 'scan', short: 'Scan', group: 'Scan & nhận dạng chữ', name: 'Scan tài liệu', conv: 'Ảnh chụp → PDF scan',
@@ -2911,6 +3035,43 @@ const TOOLS = [
       ui.step('Đang lưu PDF', 0.97);
       const name = safeName(o.name || (items.length === 1 ? baseName(items[0].name) + '_scan' : `Ban_scan_${items.length}_trang`)) + '.pdf';
       return { files: [{ name, blob: new Blob([await pdf.save()], { type: 'application/pdf' }), thumb }], info: `${items.length} trang, đã cắt theo 4 góc giấy ${cropped}/${items.length} trang${o.ocr ? ', đã thêm lớp chữ' : ''}.` };
+    },
+  },
+  {
+    id: 'rmbg', short: 'Xoá phông', group: 'Xử lý ảnh', name: 'Xoá phông nền', conv: 'Ảnh → ảnh đã tách nền',
+    desc: 'Tách người, sản phẩm hoặc đồ vật khỏi nền ảnh, giữ nguyên độ phân giải gốc. Xuất PNG nền trong suốt, hoặc thay bằng nền trắng, xanh, đỏ cho ảnh thẻ.',
+    exts: ['jpg', 'jpeg', 'png', 'webp', 'bmp'], multiple: true, action: 'Xoá phông',
+    opts: [
+      { id: 'bg', label: 'Nền sau khi xoá', type: 'select', value: 'none', choices: [['none', 'Trong suốt (PNG)'], ['white', 'Trắng (JPG)'], ['blue', 'Xanh dương, ảnh thẻ (JPG)'], ['red', 'Đỏ, ảnh thẻ (JPG)']] },
+      { id: 'edge', label: 'Độ sắc của viền', type: 'select', value: 'normal', choices: [['soft', 'Mềm, hợp tóc và lông'], ['normal', 'Chuẩn'], ['sharp', 'Sắc, hợp đồ vật cứng']] },
+    ],
+    async run(items, o, ui) {
+      const colors = { white: [255, 255, 255], blue: [66, 133, 222], red: [214, 40, 40] };
+      const bg = colors[o.bg] || null, files = [];
+      let shrunk = 0;
+      for (let i = 0; i < items.length; i++) {
+        ui.check();
+        ui.span(i / items.length, (i + 1) / items.length);
+        const label = items.length > 1 ? `Ảnh ${i + 1}/${items.length}` : 'Ảnh';
+        ui.sub(`${label} · mở ảnh`, 0.02); await sleep(0);
+        const { img, url } = await loadImageEl(items[i].file);
+        let w = img.naturalWidth, h = img.naturalHeight;
+        const k = Math.min(1, Math.sqrt(RMBG.MAX_PIXELS / (w * h)));      // giới hạn canvas của trình duyệt (khoảng 16,7 triệu điểm ảnh)
+        if (k < 1) { w = Math.floor(w * k); h = Math.floor(h * k); shrunk++; }
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h); URL.revokeObjectURL(url);
+        const outC = await RMBG.run(c, { bg, edge: o.edge }, ui, label);
+        freeCanvas(c);
+        ui.sub(`${label} · lưu ảnh`, 0.97); await sleep(0);
+        const png = !bg;
+        const blob = await canvasBlob(outC, png ? 'image/png' : 'image/jpeg', 0.95);
+        const t = document.createElement('canvas'); const tk = Math.min(1, 320 / Math.max(w, h)); t.width = Math.max(1, Math.round(w * tk)); t.height = Math.max(1, Math.round(h * tk));
+        t.getContext('2d').drawImage(outC, 0, 0, t.width, t.height);
+        const thumb = await canvasBlob(t, 'image/png'); freeCanvas(t); freeCanvas(outC);
+        const name = `${safeName(baseName(items[i].name))}_xoa_phong.${png ? 'png' : 'jpg'}`;
+        files.push({ name, blob, thumb });
+      }
+      return { files, info: `${files.length} ảnh đã xoá phông, giữ nguyên kích thước${shrunk ? `; ${shrunk} ảnh quá lớn so với giới hạn của trình duyệt nên đã thu nhỏ nhẹ` : ''}.` };
     },
   },
   {
@@ -3516,6 +3677,7 @@ const ICONS = {
   ppt2pdf: DOC_SHAPE + srcMark('P', 'var(--c-ppt)') + badge('PDF', 'var(--c-pdf)'),
   img2pdf: PICTURE + badge('PDF', 'var(--c-pdf)'),
   scan: `${CORNERS}<rect x="10" y="7.5" width="12" height="17" rx="1.2" fill="var(--sheet)" stroke="currentColor" stroke-width="1.5"/><path d="M12.5 12h7M12.5 15h7M12.5 18h4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity=".5"/><path d="M2.5 16h27" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>`,
+  rmbg: `<g transform="translate(0 0)"><rect x="3.5" y="4" width="25" height="24" rx="3" fill="var(--sheet)" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2.4 2" opacity=".55"/><circle cx="16" cy="12.5" r="3.6" fill="var(--accent)"/><path d="M8.8 24c.4-4.2 3.3-6.3 7.2-6.3s6.8 2.1 7.2 6.3z" fill="var(--accent)"/></g>`,
   ocr: `${CORNERS}<text x="16" y="20.5" text-anchor="middle" font-family="Be Vietnam Pro, Arial, sans-serif" font-weight="700" font-size="11" fill="currentColor">Aa</text><path d="M9.5 24h13" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/>`,
 };
 const iconSvg = id => `<svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">${ICONS[id] || DOC_SHAPE}</svg>`;
@@ -3859,7 +4021,7 @@ async function run() {
 
 /* ---------- ứng dụng cài được: chia sẻ file, nhận file, cài đặt, chạy khi mất mạng ---------- */
 let incoming = [];
-const ALL_ASSETS = ["./", "manifest.json", "fonts.css", "dancing-script-latin-600-normal.woff2", "Tinos-Bold.ttf", "Tinos-Regular.ttf", "be-vietnam-pro-latin-400-normal.woff2", "be-vietnam-pro-latin-500-normal.woff2", "be-vietnam-pro-latin-600-normal.woff2", "be-vietnam-pro-latin-700-normal.woff2", "be-vietnam-pro-latin-ext-400-normal.woff2", "be-vietnam-pro-latin-ext-500-normal.woff2", "be-vietnam-pro-latin-ext-600-normal.woff2", "be-vietnam-pro-latin-ext-700-normal.woff2", "be-vietnam-pro-vietnamese-400-normal.woff2", "be-vietnam-pro-vietnamese-500-normal.woff2", "be-vietnam-pro-vietnamese-600-normal.woff2", "be-vietnam-pro-vietnamese-700-normal.woff2", "ibm-plex-mono-latin-400-normal.woff2", "ibm-plex-mono-latin-500-normal.woff2", "apple-touch-icon.png", "favicon-32.png", "icon-192.png", "icon-512.png", "maskable-512.png", "shortcut-96.png", "pdf-lib.min.js", "pdf.min.js", "pdf.worker.min.js", "fontkit.umd.min.js", "jszip.min.js", "xlsx.full.min.js", "pptxgen.bundle.js", "docx-preview.min.js", "html2canvas.min.js", "tesseract.min.js", "worker.min.js", "tesseract-core-simd-lstm.wasm.js", "tesseract-core-lstm.wasm.js", "vie.traineddata.gz"];
+const ALL_ASSETS = ["ort.wasm.min.js", "ort-wasm-simd.wasm", "u2netp.onnx", "./", "manifest.json", "fonts.css", "dancing-script-latin-600-normal.woff2", "Tinos-Bold.ttf", "Tinos-Regular.ttf", "be-vietnam-pro-latin-400-normal.woff2", "be-vietnam-pro-latin-500-normal.woff2", "be-vietnam-pro-latin-600-normal.woff2", "be-vietnam-pro-latin-700-normal.woff2", "be-vietnam-pro-latin-ext-400-normal.woff2", "be-vietnam-pro-latin-ext-500-normal.woff2", "be-vietnam-pro-latin-ext-600-normal.woff2", "be-vietnam-pro-latin-ext-700-normal.woff2", "be-vietnam-pro-vietnamese-400-normal.woff2", "be-vietnam-pro-vietnamese-500-normal.woff2", "be-vietnam-pro-vietnamese-600-normal.woff2", "be-vietnam-pro-vietnamese-700-normal.woff2", "ibm-plex-mono-latin-400-normal.woff2", "ibm-plex-mono-latin-500-normal.woff2", "apple-touch-icon.png", "favicon-32.png", "icon-192.png", "icon-512.png", "maskable-512.png", "shortcut-96.png", "pdf-lib.min.js", "pdf.min.js", "pdf.worker.min.js", "fontkit.umd.min.js", "jszip.min.js", "xlsx.full.min.js", "pptxgen.bundle.js", "docx-preview.min.js", "html2canvas.min.js", "tesseract.min.js", "worker.min.js", "tesseract-core-simd-lstm.wasm.js", "tesseract-core-lstm.wasm.js", "vie.traineddata.gz"];
 function canShareFile(f) { try { return !!(navigator.canShare && navigator.canShare({ files: [f] })); } catch (e) { return false; } }
 async function shareFile(f) {
   try { await navigator.share({ files: [f], title: f.name }); }
