@@ -161,8 +161,6 @@ body.ss-open{overflow:hidden}
 .ss-addtile{justify-content:center;border:2px dashed #5a4d4d;background:transparent;color:#ff8a82;min-height:150px;font-weight:600;font-size:14px}
 .ss-addtile svg{width:30px;height:30px}
 @media (max-height:640px){.ss-th{height:56px}.ss-filter{width:68px}.ss-act{padding:6px 2px}}
-.fthumb{width:38px;height:50px;object-fit:cover;border-radius:4px;border:1px solid var(--line);background:#fff;flex:none}
-.fwrap{display:flex;gap:10px;align-items:center;min-width:0}
 
 /* sheet */
 .sheet{background:var(--sheet);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:26px 28px 30px;display:flex;flex-direction:column;gap:20px;min-width:0}
@@ -205,18 +203,26 @@ h1{font-size:26px;line-height:1.2;margin:0;letter-spacing:-.015em;text-wrap:bala
 .linkbtn{background:none;border:0;padding:0;color:var(--accent);font-weight:500;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .linkbtn:hover{color:var(--accent-hover)}
 
-.files{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+
+.fthumb{display:block;width:100%;height:100%;object-fit:contain;background:#fff}
+.files{list-style:none;margin:0;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px 14px;border:1px solid var(--line);border-radius:10px}
 .files:empty{display:none}
-.frow{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;border-top:1px solid var(--line)}
-.frow:first-child{border-top:0}
-.fidx{font-family:var(--f-mono);font-size:12px;color:var(--ink-3);text-align:right}
-.fmain{min-width:0;display:flex;flex-direction:column;gap:2px}
-.fname{font-weight:500;overflow-wrap:anywhere;line-height:1.35}
-.fmeta{font-family:var(--f-mono);font-size:12px;color:var(--ink-3)}
+.frow{display:flex;flex-direction:column;gap:8px;min-width:0}
+.fprev{position:relative;aspect-ratio:3/4;border:1px solid var(--line);border-radius:8px;background:var(--sunk);overflow:hidden;display:grid;place-items:center}
+.fprev.loading::after{content:"";position:absolute;top:-6%;bottom:-6%;left:0;width:60%;pointer-events:none;background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.55),rgba(255,255,255,0));filter:blur(6px);transform:translateX(-120%) skewX(-14deg);animation:fWave 2.2s cubic-bezier(.45,.05,.55,.95) infinite}
+@keyframes fWave{to{transform:translateX(300%) skewX(-14deg)}}
+@media (prefers-reduced-motion:reduce){.fprev.loading::after{animation:none}}
+.fext{font-family:var(--f-mono);font-size:13px;color:var(--ink-3);letter-spacing:.04em}
+.fprev.err{border-color:var(--bad)}
+.fidx{position:absolute;bottom:6px;left:6px;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:rgba(20,16,16,.72);color:#fff;font-family:var(--f-mono);font-size:12px;display:grid;place-items:center}
+.fctl{position:absolute;top:6px;right:6px;display:flex;gap:4px}
+.fctl .ibtn{width:28px;height:28px;background:rgba(255,255,255,.92);border-color:rgba(0,0,0,.12)}
+.fmain{min-width:0;display:flex;flex-direction:column;gap:2px;text-align:center;align-items:center}
+.fname{font-weight:500;overflow-wrap:anywhere;line-height:1.35;font-size:13.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.fmeta{font-family:var(--f-mono);font-size:11.5px;color:var(--ink-3)}
 .fmeta .err{color:var(--bad)}
-.frange{display:flex;align-items:center;gap:8px;margin-top:4px;font-size:12.5px;color:var(--ink-2)}
-.frange input{width:150px;height:30px;padding:0 8px;border:1px solid var(--line-2);border-radius:6px;background:var(--sheet);font-size:13px}
-.fctl{display:flex;gap:4px}
+.frange{display:flex;flex-direction:column;align-items:stretch;gap:3px;margin-top:4px;font-size:12px;color:var(--ink-2);width:100%}
+.frange input{width:100%;height:30px;padding:0 8px;border:1px solid var(--line-2);border-radius:6px;background:var(--sheet);font-size:13px}
 .ibtn{width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--line);border-radius:7px;background:var(--sheet);cursor:pointer;font-size:15px;line-height:1;color:var(--ink-2)}
 .ibtn:hover:not(:disabled){border-color:var(--line-2);color:var(--ink)}
 .ibtn:disabled{opacity:.35;cursor:default}
@@ -308,8 +314,7 @@ h1{font-size:26px;line-height:1.2;margin:0;letter-spacing:-.015em;text-wrap:bala
   h1{font-size:22px}
 }
 @media (max-width:480px){
-  .frow{grid-template-columns:22px minmax(0,1fr)}
-  .fctl{grid-column:2}
+  .files{grid-template-columns:repeat(2,minmax(0,1fr))}
   .rrow{grid-template-columns:minmax(0,1fr) auto}
   .rrow .ext{display:none}
   .primary{width:100%}
@@ -3495,6 +3500,12 @@ async function loadMeta(it) {
       const doc = await openPdfJs(await it.file.arrayBuffer(), it.name);
       it.pages = doc.numPages;
       it.meta = `${doc.numPages} trang`;
+      try {                                           // ảnh trang đầu làm hình đại diện
+        const pg = await doc.getPage(1), v1 = pg.getViewport({ scale: 1 });
+        const { canvas } = await renderPage(pg, 340 / v1.width * 72);
+        it.thumbUrl = canvas.toDataURL('image/jpeg', 0.82);
+        canvas.width = canvas.height = 1;
+      } catch (e) { /* không có hình đại diện cũng không sao */ }
       if (tool.thumbs && items[0] === it) renderThumbs(it, doc);
       else doc.destroy();
     } else if (tool.sheetPicker) {
@@ -3519,18 +3530,21 @@ function renderFiles() {
     const meta = el('div', { class: 'fmeta' }, fmtSize(it.size), it.meta ? ` · ${it.meta}` : '');
     if (it.metaErr) meta.append(' · ', el('span', { class: 'err', text: it.metaErr }));
     const main = el('div', { class: 'fmain' }, el('div', { class: 'fname', text: it.name }), meta);
-    const body = it.thumbUrl ? el('div', { class: 'fwrap' }, el('img', { class: 'fthumb', src: it.thumbUrl, alt: '' }), main) : main;
     if (tool.rangePerFile) {
       const rid = `rng_${i}`;
       main.append(el('div', { class: 'frange' }, el('label', { for: rid, text: 'Lấy trang' }), el('input', { id: rid, type: 'text', value: it.range, placeholder: 'tất cả', autocomplete: 'off', oninput: e => { it.range = e.target.value; } })));
     }
     const ctl = el('div', { class: 'fctl' });
     if (tool.multiple) {
-      ctl.append(el('button', { type: 'button', class: 'ibtn', 'aria-label': `Đưa ${it.name} lên`, disabled: i === 0 ? true : null, onclick: () => { [items[i - 1], items[i]] = [items[i], items[i - 1]]; renderFiles(); } }, '↑'));
-      ctl.append(el('button', { type: 'button', class: 'ibtn', 'aria-label': `Đưa ${it.name} xuống`, disabled: i === items.length - 1 ? true : null, onclick: () => { [items[i + 1], items[i]] = [items[i], items[i + 1]]; renderFiles(); } }, '↓'));
+      ctl.append(el('button', { type: 'button', class: 'ibtn', 'aria-label': `Đưa ${it.name} lên`, disabled: i === 0 ? true : null, onclick: () => { [items[i - 1], items[i]] = [items[i], items[i - 1]]; renderFiles(); } }, '‹'));
+      ctl.append(el('button', { type: 'button', class: 'ibtn', 'aria-label': `Đưa ${it.name} xuống`, disabled: i === items.length - 1 ? true : null, onclick: () => { [items[i + 1], items[i]] = [items[i], items[i + 1]]; renderFiles(); } }, '›'));
     }
     ctl.append(el('button', { type: 'button', class: 'ibtn', 'aria-label': `Bỏ ${it.name}`, onclick: () => { items.splice(i, 1); if (!items.length) { $('#extra').innerHTML = ''; extraState = {}; } renderFiles(); } }, '×'));
-    ul.append(el('li', { class: 'frow' }, el('span', { class: 'fidx', text: String(i + 1) }), body, ctl));
+    const prev = el('div', { class: 'fprev' + (it.thumbUrl ? '' : it.metaErr ? ' err' : ' loading') });
+    if (it.thumbUrl) prev.append(el('img', { class: 'fthumb', src: it.thumbUrl, alt: '' }));
+    else prev.append(el('span', { class: 'fext', text: (extOf(it.name) || 'file').toUpperCase() }));
+    prev.append(el('span', { class: 'fidx', text: String(i + 1) }), ctl);
+    ul.append(el('li', { class: 'frow' }, prev, main));
   });
   if (!items.length) $('#extra').innerHTML = '';
   const min = tool.minFiles || 1;
