@@ -143,6 +143,22 @@ body.ss-open{overflow:hidden}
 .ss-preview{flex:1;height:50px;border:1px solid #5a4d4d;border-radius:12px;background:transparent;color:#f3efef;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
 .ss-preview svg{width:21px;height:21px}.ss-preview:active{background:#2a2323}
 .pv-backdrop.over{z-index:70}
+.bg-stage{padding:10px}
+.bg-wrap{position:relative;flex:none}
+.bg-view,.bg-ink{position:absolute;left:0;top:0;display:block}
+.bg-view{box-shadow:0 6px 28px rgba(0,0,0,.55)}
+.bg-view.check{background-image:repeating-conic-gradient(#d9d4d4 0 25%,#fff 0 50%);background-size:18px 18px}
+.bg-ink{pointer-events:none;touch-action:none}
+.brushing .bg-ink{pointer-events:auto;cursor:crosshair}
+.bg-chips{display:flex;gap:6px;justify-content:center;padding:4px 2px 6px;overflow-x:auto;scrollbar-width:none}
+.bg-chips::-webkit-scrollbar{display:none}
+.bg-chip{position:relative;flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:60px;padding:4px 2px;border:0;background:transparent;color:#d8d0d0;font-size:12px;cursor:pointer;border-radius:10px}
+.bg-dot{width:34px;height:34px;border-radius:50%;border:2px solid #5a4d4d;display:block}
+.bg-dot.check{background-image:repeating-conic-gradient(#cfcaca 0 25%,#fff 0 50%);background-size:12px 12px}
+.bg-chip.on .bg-dot{border-color:#ff5a50;box-shadow:0 0 0 2px #ff5a50}
+.bg-chip.on{color:#fff;font-weight:600}
+.bg-color{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.bg-hint{text-align:center;font-size:13px;color:#a99f9f;padding:4px 0 6px}
 .ss-del{position:absolute;top:12px;right:12px;width:32px;height:32px;border:0;border-radius:50%;background:rgba(19,16,16,.78);color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
 .ss-del svg{width:18px;height:18px}
 .ss-addtile{justify-content:center;border:2px dashed #5a4d4d;background:transparent;color:#ff8a82;min-height:150px;font-weight:600;font-size:14px}
@@ -2064,6 +2080,11 @@ const SVG_PLUS = '<path d="M12 5v14"/><path d="M5 12h14"/>';
 const SVG_LEFT = '<path d="m14 6-6 6 6 6"/>';
 const SVG_RIGHT = '<path d="m10 6 6 6-6 6"/>';
 const SVG_EYE = '<path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
+const SVG_BRUSH_KEEP = '<path d="M18.4 3.6a2 2 0 0 1 2.8 2.8L11 16.6 7.4 13z"/><path d="M7 14c-2 0-3.5 1.6-3.5 3.5 0 1.4-.7 2.5-1.5 3 3 .6 6.9-.5 7.7-3.2"/>';
+const SVG_BRUSH_ERASE = '<path d="m7 21-4.3-4.3a1.5 1.5 0 0 1 0-2.1L13.6 3.7a1.5 1.5 0 0 1 2.1 0l4.6 4.6a1.5 1.5 0 0 1 0 2.1L10.4 21z"/><path d="M22 21H7"/><path d="m5 11 9 9"/>';
+const SVG_DOT = '<circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9" opacity=".4"/>';
+const SVG_UNDO = '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>';
+const SVG_EDGE = '<path d="M4 20c0-8 4-16 16-16"/><path d="M4 20c4 0 8-1 11-4" opacity=".45"/>';
 const SVG_TRASH = '<path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12"/><path d="M9 7V4h6v3"/>';
 const SCAN_FILTERS = [['orig', 'Màu gốc', 'Original'], ['lighten', 'Làm sáng', 'Lighten'], ['enhance', 'Rõ nét', 'Enhance'], ['bw', 'Trắng đen', 'B&W'],
   ['noshadow', 'Bỏ bóng', 'No Shadow'], ['eco', 'Tiết kiệm mực', 'Eco'], ['gray', 'Xám', 'Grayscale']];
@@ -2137,6 +2158,7 @@ let scanSource = null;          // nguồn ảnh đã chọn: cam | lib | file (
 let scanStudio = null;          // cửa sổ Scan đang mở (để "Thêm ảnh" đưa ảnh mới vào cùng một bản scan)
 async function openScanStudio(newItems) {
   if (scanStudio) { if (newItems && newItems.length) scanStudio.addPages(newItems); return; }
+  if (tool.id === 'rmbg') return openBgStudio(newItems);
   if (!items.length) return;
   const prefs = loadScanPrefs();
   const resume = scanResume; scanResume = null;
@@ -2843,42 +2865,75 @@ async function sampleImages() {
 const OCR_OPT = { id: 'ocr', label: 'Nhận dạng chữ (OCR)', type: 'select', value: 'auto', choices: [['auto', 'Tự động'], ['always', 'Luôn nhận dạng (file scan)'], ['off', 'Tắt']], hint: 'Tự động: chỉ nhận dạng trang không có chữ sẵn. Mỗi trang mất vài giây.' };
 const PAGES_OPT = { id: 'pages', label: 'Trang cần lấy', type: 'text', placeholder: 'Để trống = tất cả, ví dụ 1-3, 5' };
 
-/* ===== Xoá phông nền: mô hình U²-Net nhỏ (4,5 MB) chạy ngay trong trình duyệt, ảnh không gửi đi đâu =====
-   Mô hình chỉ nhìn bản thu nhỏ 320×320 để biết đâu là vật thể. Vùng nền sau đó được tinh chỉnh theo từng điểm ảnh của
-   ảnh gốc (guided filter), nên viền bám đúng nét thật và ảnh ra giữ nguyên độ phân giải. */
+/* ===== Xoá phông nền: mô hình ISNet (trọng số nén 8 bit, 47 MB) chạy ngay trong trình duyệt, ảnh không gửi đi đâu =====
+   Mô hình nhìn bản vuông 640 (Nhanh) hoặc 1024 (Chi tiết) để tìm vật thể. Viền sau đó được làm sạch theo từng điểm ảnh của ảnh gốc
+   (guided filter), nên bám đúng nét thật mà không ăn vào vật thể, và ảnh ra giữ nguyên độ phân giải. */
 const RMBG = (() => {
-  const MODEL = 'u2netp.onnx', SIDE = 320, LOW = 800, MAX_PIXELS = 16.7e6;
+  const PARTS = ['bgm-1.wasm', 'bgm-2.wasm', 'bgm-3.wasm', 'bgm-4.wasm'];   // mô hình chia 4 phần (giới hạn kích thước file)
+  const MAX_PIXELS = 16.7e6, WORK = 1600;
+  const EDGE = { soft: [0.02, 0.9], normal: [0.08, 0.75], sharp: [0.25, 0.6] };
   let sessP = null;
-  async function session(ui) {
+  function session(onStatus) {
     if (!sessP) sessP = (async () => {
-      ui && ui.step('Đang tải bộ xoá phông (lần đầu khoảng 15 MB, các lần sau dùng bản đã lưu)', 0.02);
+      onStatus && onStatus('Đang tải mô hình xoá phông (lần đầu khoảng 47 MB, các lần sau dùng bản đã lưu)…');
       await need('ort');
       const ort = window.ort;
-      ort.env.wasm.numThreads = 1; ort.env.wasm.proxy = false;
+      const iso = !!self.crossOriginIsolated;
+      ort.env.wasm.numThreads = iso ? Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1)) : 1;
+      ort.env.wasm.proxy = false;
       ort.env.wasm.wasmPaths = new URL('./', location.href).href;
-      let bytes;
+      const bufs = []; let got = 0;
       try {
-        const r = await fetch(new URL(MODEL, location.href).href);
-        if (!r.ok) throw new Error('http ' + r.status);
-        bytes = new Uint8Array(await r.arrayBuffer());
+        for (let i = 0; i < PARTS.length; i++) {
+          const r = await fetch(new URL(PARTS[i], location.href).href);
+          if (!r.ok) throw new Error('http ' + r.status);
+          const b = new Uint8Array(await r.arrayBuffer()); bufs.push(b); got += b.length;
+          onStatus && onStatus(`Đang tải mô hình xoá phông ${i + 1}/${PARTS.length} (${Math.round(got / 1048576)} MB)…`);
+        }
       } catch (e) { throw new UserError('Không tải được mô hình xoá phông. Kiểm tra kết nối mạng rồi thử lại.'); }
-      try { return await ort.InferenceSession.create(bytes, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' }); }
+      const all = new Uint8Array(got); let o = 0; for (const b of bufs) { all.set(b, o); o += b.length; }
+      onStatus && onStatus('Đang khởi động bộ xoá phông…');
+      try { return await ort.InferenceSession.create(all, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' }); }
       catch (e) { console.error(e); throw new UserError('Trình duyệt này không chạy được bộ xoá phông. Thử Chrome hoặc Safari bản mới, hoặc dùng bản máy tính.'); }
     })().catch(e => { sessP = null; throw e; });
     return sessP;
   }
-  const smooth = (x, a, b) => { const t = x <= a ? 0 : x >= b ? 1 : (x - a) / (b - a); return t * t * (3 - 2 * t); };
-  // lọc trung bình theo cửa sổ (2r+1), biên lấy phần có thật
-  function box(src, w, h, r, out) {
+  // Mô hình đọc ảnh, trả về bản đồ vật thể side×side (0..1)
+  async function mask(canvas, side, onStatus) {
+    let sess = await session(onStatus);
+    onStatus && onStatus(side >= 1024 ? 'Đang tách nền, chế độ Chi tiết (khoảng 10–40 giây)…' : 'Đang tách nền, chế độ Nhanh (khoảng 5–15 giây)…');
+    await sleep(30);
+    const sm = document.createElement('canvas'); sm.width = sm.height = side;
+    const g = sm.getContext('2d', { willReadFrequently: true }); g.imageSmoothingQuality = 'high'; g.drawImage(canvas, 0, 0, side, side);
+    const px = g.getImageData(0, 0, side, side).data; freeCanvas(sm);
+    let mx = 1; for (let i = 0; i < px.length; i += 4) { if (px[i] > mx) mx = px[i]; if (px[i + 1] > mx) mx = px[i + 1]; if (px[i + 2] > mx) mx = px[i + 2]; }
+    const N = side * side, inp = new Float32Array(3 * N), mean = [0.485, 0.456, 0.406];
+    for (let i = 0; i < N; i++) for (let c = 0; c < 3; c++) inp[c * N + i] = px[i * 4 + c] / mx - mean[c];
+    let out;
+    try {
+      const res = await sess.run({ [sess.inputNames[0]]: new window.ort.Tensor('float32', inp, [1, 3, side, side]) });
+      out = res[sess.outputNames[0]].data;
+    } catch (e) {
+      console.error(e);
+      try { sess.release && await sess.release(); } catch (e2) { /* */ }
+      sessP = null;
+      if (side > 640) return { ...(await mask(canvas, 640, onStatus)), fellBack: true };   // máy thiếu bộ nhớ: làm lại ở chế độ Nhanh
+      throw new UserError('Máy không đủ bộ nhớ để tách nền ảnh này. Đóng bớt ứng dụng khác rồi thử lại.');
+    }
+    let lo = Infinity, hi = -Infinity; for (let i = 0; i < N; i++) { const v = out[i]; if (v < lo) lo = v; if (v > hi) hi = v; }
+    const data = new Float32Array(N); for (let i = 0; i < N; i++) data[i] = (out[i] - lo) / (hi - lo + 1e-8);
+    return { data, side };
+  }
+  function box(src, w, h, r, out) {          // lọc trung bình cửa sổ (2r+1), biên chỉ lấy phần có thật
     const tmp = new Float32Array(w * h);
     for (let y = 0; y < h; y++) {
       const o = y * w; let s = 0, n = 0;
       for (let x = 0; x <= Math.min(r, w - 1); x++) { s += src[o + x]; n++; }
       for (let x = 0; x < w; x++) {
         tmp[o + x] = s / n;
-        const add = x + r + 1, rem = x - r;
-        if (add < w) { s += src[o + add]; n++; }
-        if (rem >= 0) { s -= src[o + rem]; n--; }
+        const a = x + r + 1, b = x - r;
+        if (a < w) { s += src[o + a]; n++; }
+        if (b >= 0) { s -= src[o + b]; n--; }
       }
     }
     for (let x = 0; x < w; x++) {
@@ -2886,84 +2941,375 @@ const RMBG = (() => {
       for (let y = 0; y <= Math.min(r, h - 1); y++) { s += tmp[y * w + x]; n++; }
       for (let y = 0; y < h; y++) {
         out[y * w + x] = s / n;
-        const add = y + r + 1, rem = y - r;
-        if (add < h) { s += tmp[add * w + x]; n++; }
-        if (rem >= 0) { s -= tmp[rem * w + x]; n--; }
+        const a = y + r + 1, b = y - r;
+        if (a < h) { s += tmp[a * w + x]; n++; }
+        if (b >= 0) { s -= tmp[b * w + x]; n--; }
       }
     }
     return out;
   }
-  /* canvas: ảnh gốc (giữ nguyên kích thước). Trả về canvas RGBA cùng kích thước, nền đã xoá (hoặc thay bằng màu bg). */
-  async function run(canvas, opt, ui, label) {
-    const W = canvas.width, H = canvas.height;
-    const sess = await session(ui);
-    ui.check();
-    // 1) mô hình nhìn bản 320×320
-    ui.sub(`${label} · nhận diện vật thể`, 0.1); await sleep(0);
-    const sm = document.createElement('canvas'); sm.width = sm.height = SIDE;
-    const sctx = sm.getContext('2d', { willReadFrequently: true }); sctx.imageSmoothingQuality = 'high'; sctx.drawImage(canvas, 0, 0, SIDE, SIDE);
-    const px = sctx.getImageData(0, 0, SIDE, SIDE).data;
-    let mx = 1; for (let i = 0; i < px.length; i += 4) { if (px[i] > mx) mx = px[i]; if (px[i + 1] > mx) mx = px[i + 1]; if (px[i + 2] > mx) mx = px[i + 2]; }
-    const N = SIDE * SIDE, inp = new Float32Array(3 * N), mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225];
-    for (let i = 0; i < N; i++) for (let c = 0; c < 3; c++) inp[c * N + i] = (px[i * 4 + c] / mx - mean[c]) / std[c];
-    const feeds = { [sess.inputNames[0]]: new window.ort.Tensor('float32', inp, [1, 3, SIDE, SIDE]) };
-    ui.sub(`${label} · nhận diện vật thể`, 0.25); await sleep(0);
-    const res = await sess.run(feeds);
-    const out = res[sess.outputNames[0]].data;
-    let lo = Infinity, hi = -Infinity; for (let i = 0; i < N; i++) { const v = out[i]; if (v < lo) lo = v; if (v > hi) hi = v; }
-    const m320 = new Uint8ClampedArray(N * 4);
-    for (let i = 0; i < N; i++) { const v = Math.round(255 * (out[i] - lo) / (hi - lo + 1e-8)); m320[i * 4] = m320[i * 4 + 1] = m320[i * 4 + 2] = v; m320[i * 4 + 3] = 255; }
-    sctx.putImageData(new ImageData(m320, SIDE, SIDE), 0, 0);
-    ui.check();
-    // 2) tinh chỉnh theo ảnh gốc ở độ phân giải trung gian (nhanh), áp dụng lên từng điểm ảnh gốc
-    ui.sub(`${label} · làm sạch viền theo ảnh gốc`, 0.4); await sleep(0);
-    const k = Math.max(W, H) / LOW, ws = Math.max(8, Math.round(W / Math.max(1, k))), hs = Math.max(8, Math.round(H / Math.max(1, k)));
+  const smooth = (x, a, b) => { const t = x <= a ? 0 : x >= b ? 1 : (x - a) / (b - a); return t * t * (3 - 2 * t); };
+  // nét sửa tay: [{m:'keep'|'erase', r (theo cạnh dài, 0..1), pts:[[x,y] 0..1]}]
+  function drawStrokes(g, strokes, w, h) {
+    const L = Math.max(w, h);
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    for (const s of strokes) {
+      g.strokeStyle = g.fillStyle = s.m === 'keep' ? '#fff' : '#000';
+      g.lineWidth = Math.max(1, 2 * s.r * L);
+      if (s.pts.length === 1) { g.beginPath(); g.arc(s.pts[0][0] * w, s.pts[0][1] * h, g.lineWidth / 2, 0, Math.PI * 2); g.fill(); continue; }
+      g.beginPath(); g.moveTo(s.pts[0][0] * w, s.pts[0][1] * h);
+      for (let i = 1; i < s.pts.length; i++) g.lineTo(s.pts[i][0] * w, s.pts[i][1] * h);
+      g.stroke();
+    }
+  }
+  /* src: ảnh (canvas) ở kích thước muốn xuất. m: kết quả mask(). opt: {bg:[r,g,b]|null, edge, strokes}. Trả về canvas cùng kích thước. */
+  async function compose(src, m, opt, onProg) {
+    const W = src.width, H = src.height;
+    const k = Math.max(1, Math.max(W, H) / WORK), ws = Math.max(8, Math.round(W / k)), hs = Math.max(8, Math.round(H / k)), n = ws * hs;
     const lc = document.createElement('canvas'); lc.width = ws; lc.height = hs;
-    const lctx = lc.getContext('2d', { willReadFrequently: true }); lctx.imageSmoothingQuality = 'high';
-    lctx.drawImage(canvas, 0, 0, ws, hs);
-    const ld = lctx.getImageData(0, 0, ws, hs).data, n = ws * hs, I = new Float32Array(n), P = new Float32Array(n);
-    for (let i = 0; i < n; i++) I[i] = (0.299 * ld[i * 4] + 0.587 * ld[i * 4 + 1] + 0.114 * ld[i * 4 + 2]) / 255;
-    lctx.drawImage(sm, 0, 0, ws, hs);
-    const md = lctx.getImageData(0, 0, ws, hs).data;
-    for (let i = 0; i < n; i++) P[i] = md[i * 4] / 255;
-    const r = Math.max(2, Math.round(0.01 * Math.max(ws, hs))), eps = 1e-3;
-    const t1 = new Float32Array(n), t2 = new Float32Array(n);
-    const mI = box(I, ws, hs, r, new Float32Array(n)), mP = box(P, ws, hs, r, new Float32Array(n));
-    for (let i = 0; i < n; i++) t1[i] = I[i] * P[i];
-    const cIP = box(t1, ws, hs, r, new Float32Array(n));
-    for (let i = 0; i < n; i++) t2[i] = I[i] * I[i];
-    const cII = box(t2, ws, hs, r, new Float32Array(n));
-    const A = new Float32Array(n), B = new Float32Array(n);
+    const g = lc.getContext('2d', { willReadFrequently: true }); g.imageSmoothingQuality = 'high';
+    g.drawImage(src, 0, 0, ws, hs);
+    let d = g.getImageData(0, 0, ws, hs).data;
+    const I = new Float32Array(n), P = new Float32Array(n);
+    for (let i = 0; i < n; i++) I[i] = (0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]) / 255;
+    // bản đồ vật thể (side×side) phóng về độ phân giải làm việc
+    const mc = document.createElement('canvas'); mc.width = mc.height = m.side;
+    const mg = mc.getContext('2d'); const md = new ImageData(m.side, m.side);
+    for (let i = 0; i < m.data.length; i++) { const v = Math.round(m.data[i] * 255); md.data[i * 4] = md.data[i * 4 + 1] = md.data[i * 4 + 2] = v; md.data[i * 4 + 3] = 255; }
+    mg.putImageData(md, 0, 0);
+    g.clearRect(0, 0, ws, hs); g.drawImage(mc, 0, 0, ws, hs); freeCanvas(mc);
+    d = g.getImageData(0, 0, ws, hs).data;
+    for (let i = 0; i < n; i++) P[i] = d[i * 4] / 255;
+    // guided filter: viền đi theo nét của ảnh gốc
+    const r = Math.max(2, Math.round(0.003 * Math.max(ws, hs))), eps = 1e-3;
+    const mI = box(I, ws, hs, r, new Float32Array(n)), mP = box(P, ws, hs, r, new Float32Array(n)), t = new Float32Array(n);
+    for (let i = 0; i < n; i++) t[i] = I[i] * P[i];
+    const cIP = box(t, ws, hs, r, new Float32Array(n));
+    for (let i = 0; i < n; i++) t[i] = I[i] * I[i];
+    const cII = box(t, ws, hs, r, new Float32Array(n));
+    const A = t, B = P;
     for (let i = 0; i < n; i++) { const a = (cIP[i] - mI[i] * mP[i]) / (cII[i] - mI[i] * mI[i] + eps); A[i] = a; B[i] = mP[i] - a * mI[i]; }
-    const mA = box(A, ws, hs, r, new Float32Array(n)), mB = box(B, ws, hs, r, new Float32Array(n));
-    ui.check();
-    // 3) tạo ảnh kết quả ở độ phân giải gốc
-    const outC = document.createElement('canvas'); outC.width = W; outC.height = H;
-    const octx = outC.getContext('2d', { willReadFrequently: true }); octx.drawImage(canvas, 0, 0);
-    const img = octx.getImageData(0, 0, W, H), d = img.data;
-    const [e0, e1] = { soft: [0.05, 0.95], normal: [0.15, 0.85], sharp: [0.3, 0.7] }[opt.edge] || [0.15, 0.85];
-    const bg = opt.bg || null;                                        // null = trong suốt
+    const mA = box(A, ws, hs, r, mI), mB = box(B, ws, hs, r, mP);
+    // nét sửa tay ở độ phân giải làm việc: giá trị (giữ = 1, xoá = 0) và độ phủ
+    let OV = null, OC = null;
+    if (opt.strokes && opt.strokes.length) {
+      g.clearRect(0, 0, ws, hs); drawStrokes(g, opt.strokes, ws, hs);
+      d = g.getImageData(0, 0, ws, hs).data; OV = cIP; OC = cII;
+      for (let i = 0; i < n; i++) { OC[i] = d[i * 4 + 3] / 255; OV[i] = d[i * 4] / 255; }
+    }
+    freeCanvas(lc);
+    // ảnh ra ở độ phân giải gốc
+    const out = document.createElement('canvas'); out.width = W; out.height = H;
+    const og = out.getContext('2d', { willReadFrequently: true }); og.drawImage(src, 0, 0);
+    const img = og.getImageData(0, 0, W, H), px = img.data;
+    const [e0, e1] = EDGE[opt.edge] || EDGE.normal, bg = opt.bg || null;
     const x0 = new Int32Array(W), fx = new Float32Array(W);
     for (let x = 0; x < W; x++) { const u = Math.min(ws - 1, Math.max(0, (x + 0.5) * ws / W - 0.5)); x0[x] = Math.min(ws - 2, Math.floor(u)); fx[x] = u - x0[x]; }
+    const lerp = (M, r0, r1, a, f, fy) => (M[r0 + a] * (1 - f) + M[r0 + a + 1] * f) * (1 - fy) + (M[r1 + a] * (1 - f) + M[r1 + a + 1] * f) * fy;
     for (let y = 0; y < H; y++) {
       const v = Math.min(hs - 1, Math.max(0, (y + 0.5) * hs / H - 0.5)), y0 = Math.min(hs - 2, Math.floor(v)), fy = v - y0, r0 = y0 * ws, r1 = r0 + ws;
       for (let x = 0; x < W; x++) {
-        const a = x0[x], f = fx[x], g = 1 - f, h2 = 1 - fy;
-        const ma = (mA[r0 + a] * g + mA[r0 + a + 1] * f) * h2 + (mA[r1 + a] * g + mA[r1 + a + 1] * f) * fy;
-        const mb = (mB[r0 + a] * g + mB[r0 + a + 1] * f) * h2 + (mB[r1 + a] * g + mB[r1 + a + 1] * f) * fy;
-        const i = (y * W + x) * 4;
-        const lum = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255;
-        const al = smooth(ma * lum + mb, e0, e1);
-        if (bg) { d[i] = d[i] * al + bg[0] * (1 - al); d[i + 1] = d[i + 1] * al + bg[1] * (1 - al); d[i + 2] = d[i + 2] * al + bg[2] * (1 - al); d[i + 3] = 255; }
-        else d[i + 3] = Math.round(al * 255);
+        const a = x0[x], f = fx[x], i = (y * W + x) * 4;
+        const lum = (0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]) / 255;
+        let al = smooth(lerp(mA, r0, r1, a, f, fy) * lum + lerp(mB, r0, r1, a, f, fy), e0, e1);
+        if (OV) { const c = lerp(OC, r0, r1, a, f, fy); if (c > 0.002) al = al * (1 - c) + lerp(OV, r0, r1, a, f, fy) * c; }
+        if (bg) { px[i] = px[i] * al + bg[0] * (1 - al); px[i + 1] = px[i + 1] * al + bg[1] * (1 - al); px[i + 2] = px[i + 2] * al + bg[2] * (1 - al); px[i + 3] = 255; }
+        else px[i + 3] = Math.round(al * 255);
       }
-      if ((y & 255) === 255) { ui.sub(`${label} · xoá phông`, 0.55 + 0.4 * y / H); await sleep(0); ui.check(); }
+      if (onProg && (y & 127) === 127) { onProg(y / H); await sleep(0); }
     }
-    octx.putImageData(img, 0, 0);
-    return outC;
+    og.putImageData(img, 0, 0);
+    return out;
   }
-  return { run, MAX_PIXELS };
+  async function loadFull(file) {            // ảnh gốc, giới hạn theo khả năng canvas của trình duyệt
+    const { img, url } = await loadImageEl(file);
+    let w = img.naturalWidth, h = img.naturalHeight, shrunk = false;
+    const k = Math.min(1, Math.sqrt(MAX_PIXELS / (w * h)));
+    if (k < 1) { w = Math.floor(w * k); h = Math.floor(h * k); shrunk = true; }
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    c.getContext('2d').drawImage(img, 0, 0, w, h); URL.revokeObjectURL(url);
+    return { canvas: c, shrunk };
+  }
+  return { mask, compose, drawStrokes, loadFull, EDGE };
 })();
+const BG_COLORS = { none: null, white: [255, 255, 255], blue: [66, 133, 222], red: [214, 40, 40] };
+const BG_PREF_KEY = 'scanpdf-bg-prefs';
+const loadBgPrefs = () => { try { return JSON.parse(localStorage.getItem(BG_PREF_KEY)) || {}; } catch (e) { return {}; } };
+const saveBgPrefs = p => { try { localStorage.setItem(BG_PREF_KEY, JSON.stringify(p)); } catch (e) { /* */ } };
+const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+
+/* ===== Màn hình Xoá phông: chọn ảnh → tự tách nền → xem lại, chọn nền / viền / chất lượng, sửa tay → lưu ===== */
+const PREV_SIDE = 1400;                       // ảnh xem trên màn hình; khi lưu mới làm ở độ phân giải gốc
+async function openBgStudio(newItems) {
+  if (!items.length) return;
+  const prefs = loadBgPrefs();
+  const st = {
+    alive: true, busy: false, idx: 0, brush: null, size: 'm', compare: false,
+    bg: prefs.bg || 'none', custom: prefs.custom || '#2e7d32', edge: prefs.edge || 'normal', q: prefs.q || 'detail',
+    pages: items.map(it => ({ it, prev: null, m: null, mq: '', strokes: (it._bg && it._bg.strokes) || [], out: null, key: '' })),
+  };
+  items.forEach((it, i) => { if (it._bg && it._bg.m) { st.pages[i].m = it._bg.m; st.pages[i].mq = it._bg.mq; } });
+  if (newItems && newItems.length) st.idx = Math.max(0, st.pages.findIndex(p => newItems.includes(p.it)));
+  const setPref = (k, v) => { st[k] = v; const p = loadBgPrefs(); p[k] = v; saveBgPrefs(p); };
+  const side = () => st.q === 'fast' ? 640 : 1024;
+  const bgRgb = () => st.bg === 'custom' ? hexRgb(st.custom) : BG_COLORS[st.bg];
+  const head = el('div', { class: 'ss-head' });
+  const stage = el('div', { class: 'ss-stage bg-stage' });
+  const bottom = el('div', { class: 'ss-bottom' });
+  const root = el('div', { class: 'ss', role: 'dialog', 'aria-label': 'Xoá phông nền' }, head, stage, bottom);
+  const busyEl = el('div', { class: 'ss-busy' });
+  const view = el('canvas', { class: 'bg-view' });
+  const ink = el('canvas', { class: 'bg-ink' });             // nét cọ đang vẽ
+  const wrap = el('div', { class: 'bg-wrap' }, view, ink);
+  stage.append(wrap, busyEl);
+  document.body.append(root); document.body.classList.add('ss-open');
+  const busy = msg => { st.busy = !!msg; busyEl.textContent = msg || ''; busyEl.style.display = msg ? 'flex' : 'none'; };
+  const btn = (cls, icon, label, fn, attrs = {}) => el('button', { type: 'button', class: cls, onclick: fn, ...attrs }, svgIcon(icon), label ? el('span', { text: label }) : null);
+  const remember = p => { p.it._bg = { m: p.m, mq: p.mq, strokes: p.strokes }; };
+
+  /* ---- xử lý một ảnh: ảnh xem → tách nền (mô hình) → ghép nền ---- */
+  let tok = 0;
+  async function process(i, opts = {}) {
+    const p = st.pages[i]; const my = ++tok;
+    try {
+      if (!p.prev) {
+        busy('Đang mở ảnh…');
+        const { img, url } = await loadImageEl(p.it.file);
+        const k = Math.min(1, PREV_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+        const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+        p.prev = c;
+      }
+      if (!st.alive || my !== tok) return;
+      if (!p.m || p.mq !== st.q) {
+        const m = await RMBG.mask(p.prev, side(), t => { if (my === tok) busy(t); });
+        if (!st.alive) return;
+        p.m = m; p.mq = st.q;
+        if (m.fellBack) { setPref('q', 'fast'); p.mq = 'fast'; renderBar(); toast('Máy không đủ bộ nhớ cho chế độ Chi tiết, đã chuyển sang Nhanh'); }
+        remember(p);
+      }
+      if (my !== tok) return;
+      const key = [p.mq, st.bg, st.custom, st.edge, p.strokes.length].join('|');
+      if (!p.out || p.key !== key || opts.force) {
+        if (!opts.quiet) busy('Đang ghép nền…');
+        await sleep(0);
+        const out = await RMBG.compose(p.prev, p.m, { bg: bgRgb(), edge: st.edge, strokes: p.strokes });
+        if (!st.alive) { freeCanvas(out); return; }
+        if (p.out) freeCanvas(p.out);
+        p.out = out; p.key = key;
+      }
+      if (my !== tok) return;
+      busy(null); draw();
+    } catch (e) {
+      busy(null);
+      if (st.alive) toast(e instanceof UserError ? e.message : 'Không tách được nền ảnh này');
+      console.error(e);
+    }
+  }
+
+  /* ---- vẽ lên màn hình ---- */
+  function fit() {
+    const p = st.pages[st.idx], src = st.compare && p.prev ? p.prev : p.out || p.prev;
+    if (!src) return;
+    const r = stage.getBoundingClientRect(), maxW = Math.max(50, r.width - 20), maxH = Math.max(50, r.height - 20);
+    const k = Math.min(maxW / src.width, maxH / src.height);
+    const w = Math.round(src.width * k), h = Math.round(src.height * k);
+    for (const c of [view, ink]) { c.style.width = w + 'px'; c.style.height = h + 'px'; }
+    wrap.style.width = w + 'px'; wrap.style.height = h + 'px';
+  }
+  function draw() {
+    const p = st.pages[st.idx];
+    const src = st.compare && p.prev ? p.prev : p.out || p.prev;
+    if (!src) return;
+    view.width = src.width; view.height = src.height;
+    view.getContext('2d').drawImage(src, 0, 0);
+    view.classList.toggle('check', !st.compare && !bgRgb());
+    ink.width = src.width; ink.height = src.height;
+    fit();
+  }
+
+  /* ---- thanh trên ---- */
+  function renderHead() {
+    const n = st.pages.length;
+    head.replaceChildren(
+      btn('ss-ib', SVG_CLOSE, null, close, { 'aria-label': 'Đóng' }),
+      el('div', { class: 'ss-title' }, 'Xoá phông', el('small', { text: st.pages[st.idx].it.name })),
+      n > 1 ? el('div', { class: 'ss-pager' },
+        btn('ss-ib sm', SVG_CHEV_L, null, () => go(-1), { 'aria-label': 'Ảnh trước', disabled: st.idx === 0 ? true : null }),
+        el('span', { text: `${st.idx + 1}/${n}` }),
+        btn('ss-ib sm', SVG_CHEV_R, null, () => go(1), { 'aria-label': 'Ảnh sau', disabled: st.idx === n - 1 ? true : null })) : '',
+      btn('ss-ib', SVG_TRASH, null, removeCur, { 'aria-label': 'Bỏ ảnh này' }));
+  }
+  function go(d) {
+    const j = st.idx + d; if (st.busy || j < 0 || j >= st.pages.length) return;
+    st.idx = j; renderHead(); draw(); process(j);
+  }
+  function removeCur() {
+    if (st.busy) return;
+    const p = st.pages[st.idx];
+    if (st.pages.length <= 1) { close(); return; }
+    const k = items.indexOf(p.it); if (k >= 0) items.splice(k, 1);
+    freeCanvas(p.prev); freeCanvas(p.out);
+    st.pages.splice(st.idx, 1); st.idx = Math.min(st.idx, st.pages.length - 1);
+    renderFiles(); renderHead(); renderBar(); draw(); process(st.idx);
+  }
+
+  /* ---- thanh dưới: nền, viền, chất lượng, sửa tay ---- */
+  const EDGE_LABEL = { soft: 'Viền mềm', normal: 'Viền chuẩn', sharp: 'Viền sắc' };
+  const SIZE_R = { s: 0.012, m: 0.025, l: 0.05 }, SIZE_LABEL = { s: 'Cọ nhỏ', m: 'Cọ vừa', l: 'Cọ lớn' };
+  function chip(id, label, style) {
+    return el('button', { type: 'button', class: 'bg-chip' + (st.bg === id ? ' on' : ''), 'aria-label': label, title: label, onclick: () => { if (st.busy) return; setPref('bg', id); renderBar(); process(st.idx); } },
+      el('span', { class: 'bg-dot' + (id === 'none' ? ' check' : ''), style }), el('span', { class: 'bg-cl', text: label }));
+  }
+  function renderBar() {
+    const n = st.pages.length;
+    if (st.brush) {
+      bottom.replaceChildren(
+        el('div', { class: 'bg-hint', text: st.brush === 'keep' ? 'Tô lên chỗ bị xoá nhầm để giữ lại' : 'Tô lên phần nền còn sót để xoá' }),
+        el('div', { class: 'ss-bar' },
+          btn('ss-act' + (st.brush === 'keep' ? ' on' : ''), SVG_BRUSH_KEEP, 'Giữ lại', () => { st.brush = 'keep'; renderBar(); }),
+          btn('ss-act' + (st.brush === 'erase' ? ' on' : ''), SVG_BRUSH_ERASE, 'Xoá bớt', () => { st.brush = 'erase'; renderBar(); }),
+          btn('ss-act', SVG_DOT, SIZE_LABEL[st.size], () => { st.size = { s: 'm', m: 'l', l: 's' }[st.size]; renderBar(); }),
+          btn('ss-act', SVG_UNDO, 'Hoàn tác', undo, { disabled: st.pages[st.idx].strokes.length ? null : true }),
+          btn('ss-act primary', SVG_SAVE, 'Xong', () => { st.brush = null; stage.classList.remove('brushing'); renderBar(); })));
+      stage.classList.add('brushing');
+      return;
+    }
+    const color = el('input', { type: 'color', value: st.custom, class: 'bg-color', 'aria-label': 'Chọn màu nền khác' });
+    color.addEventListener('input', () => { setPref('custom', color.value); setPref('bg', 'custom'); renderBar(); process(st.idx, { quiet: true }); });
+    const customChip = el('label', { class: 'bg-chip' + (st.bg === 'custom' ? ' on' : ''), title: 'Màu khác' },
+      el('span', { class: 'bg-dot', style: `background:${st.custom}` }), el('span', { class: 'bg-cl', text: 'Màu khác' }), color);
+    bottom.replaceChildren(
+      el('div', { class: 'bg-chips' },
+        chip('none', 'Trong suốt', ''), chip('white', 'Trắng', 'background:#fff'), chip('blue', 'Xanh', 'background:rgb(66,133,222)'), chip('red', 'Đỏ', 'background:rgb(214,40,40)'), customChip),
+      el('div', { class: 'ss-bar' },
+        btn('ss-act', SVG_EDGE, EDGE_LABEL[st.edge], () => { if (st.busy) return; setPref('edge', { soft: 'normal', normal: 'sharp', sharp: 'soft' }[st.edge]); renderBar(); process(st.idx); }),
+        btn('ss-act', SVG_AUTO, st.q === 'fast' ? 'Nhanh' : 'Chi tiết', () => { if (st.busy) return; setPref('q', st.q === 'fast' ? 'detail' : 'fast'); renderBar(); process(st.idx); }, { title: 'Nhanh: tách nền nhanh hơn. Chi tiết: giữ tóc, tay chân, chi tiết nhỏ tốt hơn nhưng chậm hơn' }),
+        btn('ss-act', SVG_BRUSH_KEEP, 'Sửa tay', () => { if (st.busy || !st.pages[st.idx].out) return; st.brush = 'keep'; renderBar(); }),
+        btn('ss-act', SVG_COMPARE, 'Ảnh gốc', null, { 'aria-label': 'Giữ để xem ảnh gốc' }),
+        btn('ss-act', SVG_PLUS, 'Thêm ảnh', addMore)),
+      el('button', { type: 'button', class: 'ss-save', onclick: finish }, svgIcon(SVG_SAVE), el('span', { text: n > 1 ? `Lưu ${n} ảnh` : 'Lưu ảnh' })));
+    const cmp = bottom.querySelector('[aria-label="Giữ để xem ảnh gốc"]');
+    const on = e => { e.preventDefault(); st.compare = true; draw(); }, off = () => { if (st.compare) { st.compare = false; draw(); } };
+    cmp.addEventListener('pointerdown', on); cmp.addEventListener('pointerup', off); cmp.addEventListener('pointerleave', off); cmp.addEventListener('pointercancel', off);
+    stage.classList.remove('brushing');
+  }
+  function undo() {
+    const p = st.pages[st.idx]; if (st.busy || !p.strokes.length) return;
+    p.strokes.pop(); remember(p); renderBar(); process(st.idx, { quiet: true, force: true });
+  }
+
+  /* ---- cọ sửa tay ---- */
+  let cur = null;
+  const pos = e => { const r = ink.getBoundingClientRect(); return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))]; };
+  function inkDraw() {
+    const g = ink.getContext('2d'); g.clearRect(0, 0, ink.width, ink.height);
+    if (!cur) return;
+    g.globalAlpha = 0.55; RMBG.drawStrokes(g, [cur], ink.width, ink.height);
+    g.globalCompositeOperation = 'source-in'; g.fillStyle = cur.m === 'keep' ? '#2ecc71' : '#ff3b30'; g.fillRect(0, 0, ink.width, ink.height);
+    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+  }
+  ink.addEventListener('pointerdown', e => {
+    if (!st.brush || st.busy) return;
+    e.preventDefault(); ink.setPointerCapture(e.pointerId);
+    cur = { m: st.brush, r: SIZE_R[st.size], pts: [pos(e)] }; inkDraw();
+  });
+  ink.addEventListener('pointermove', e => { if (!cur) return; e.preventDefault(); cur.pts.push(pos(e)); inkDraw(); });
+  const endStroke = () => {
+    if (!cur) return;
+    const p = st.pages[st.idx]; p.strokes.push(cur); cur = null; remember(p);
+    renderBar(); process(st.idx, { quiet: true, force: true }).then(() => inkDraw());
+  };
+  ink.addEventListener('pointerup', endStroke); ink.addEventListener('pointercancel', endStroke);
+
+  /* ---- thêm ảnh: dùng lại đúng nguồn đã chọn lúc đầu ---- */
+  function addMore() {
+    if (st.busy) return;
+    const id = { cam: '#camInput', lib: '#libInput', file: '#fileInput' }[scanSource];
+    if (id) $(id).click(); else if (IS_ANDROID) askImageSource(); else $('#fileInput').click();
+  }
+
+  /* ---- lưu: làm lại ở độ phân giải gốc rồi tải về ---- */
+  let dlgClose = null;
+  function askName(def, multi) {
+    return new Promise(resolve => {
+      const input = el('input', { class: 'ss-name', type: 'text', value: def, 'aria-label': 'Tên file', autocomplete: 'off', spellcheck: 'false' });
+      const done = v => { dlg.remove(); dlgClose = null; resolve(v); };
+      const ok = () => done(input.value.trim().replace(/\.(png|jpe?g)$/i, '') || def);
+      const ext = bgRgb() ? '.jpg' : '.png';
+      const dlg = el('div', { class: 'ss-dlg', onclick: e => { if (e.target === dlg) done(null); } },
+        el('div', { class: 'ss-dbox', role: 'dialog', 'aria-label': 'Tên file ảnh' },
+          el('h3', { text: multi ? `Lưu ${st.pages.length} ảnh` : 'Lưu ảnh' }),
+          el('label', { text: multi ? 'Tên chung (có thể sửa), mỗi ảnh thêm số thứ tự' : 'Tên file (có thể sửa)' }),
+          el('div', { class: 'ss-drow' }, input, el('span', { text: multi ? `_1${ext}…` : ext })),
+          el('div', { class: 'ss-dbtn' },
+            el('button', { type: 'button', class: 'ss-dno', onclick: () => done(null), text: 'Huỷ' }),
+            el('button', { type: 'button', class: 'ss-dyes', onclick: ok, text: 'Lưu' }))));
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ok(); } });
+      root.append(dlg); dlgClose = () => done(null);
+      setTimeout(() => { input.focus(); input.select(); }, 30);
+    });
+  }
+  const stampName = () => { const d = new Date(), z = x => String(x).padStart(2, '0'); return `${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}`; };
+  const niceBase = nm => { const b = safeName(baseName(nm)); return (/^\d{10,}/.test(b) || (b.length > 14 && b.replace(/\D/g, '').length / b.length > 0.8)) ? stampName() : b; };
+  async function finish() {
+    if (st.busy || dlgClose) return;
+    const multi = st.pages.length > 1;
+    const name = await askName(multi ? 'Anh_xoa_phong' : niceBase(st.pages[0].it.name) + '_xoa_phong', multi);
+    if (name === null || !st.alive) return;
+    const files = [], ext = bgRgb() ? 'jpg' : 'png';
+    let shrunk = 0;
+    try {
+      for (let i = 0; i < st.pages.length; i++) {
+        const p = st.pages[i], lab = multi ? `Ảnh ${i + 1}/${st.pages.length}: ` : '';
+        if (!p.prev || !p.m || p.mq !== st.q) { st.idx = i; renderHead(); await process(i); if (!p.m) throw new UserError('Chưa tách được nền ảnh ' + (i + 1)); }
+        busy(`${lab}đang làm ở độ phân giải gốc…`);
+        await sleep(30);
+        const { canvas: full, shrunk: s } = await RMBG.loadFull(p.it.file); if (s) shrunk++;
+        const out = await RMBG.compose(full, p.m, { bg: bgRgb(), edge: st.edge, strokes: p.strokes }, f => busy(`${lab}đang làm ở độ phân giải gốc ${Math.round(f * 100)}%`));
+        freeCanvas(full);
+        busy(`${lab}đang xuất ảnh ${out.width}×${out.height}…`); await sleep(30);
+        const blob = await canvasBlob(out, ext === 'png' ? 'image/png' : 'image/jpeg', 0.95); freeCanvas(out);
+        files.push({ name: `${safeName(name)}${multi ? '_' + (i + 1) : ''}.${ext}`, blob });
+        if (!st.alive) return;
+      }
+    } catch (e) {
+      busy(null); toast(e instanceof UserError ? e.message : 'Không xuất được ảnh: ' + ((e && e.message) || e)); console.error(e); return;
+    }
+    busy(null);
+    close();
+    if (shrunk) toast(`${shrunk} ảnh quá lớn so với giới hạn trình duyệt nên đã thu nhỏ nhẹ`);
+    for (const f of files) await saveBlob(f.name, f.blob);
+  }
+
+  /* ---- đóng ---- */
+  function close() {
+    if (!st.alive) return;
+    st.alive = false; tok++;
+    for (const p of st.pages) { remember(p); freeCanvas(p.prev); freeCanvas(p.out); }
+    window.removeEventListener('resize', fit); document.removeEventListener('keydown', onKey, true);
+    root.remove(); document.body.classList.remove('ss-open');
+    if (scanStudio === api) scanStudio = null;
+  }
+  const onKey = e => {
+    if (e.key !== 'Escape') return;
+    e.preventDefault(); e.stopPropagation();
+    if (dlgClose) dlgClose(); else if (st.brush) { st.brush = null; renderBar(); } else close();
+  };
+  window.addEventListener('resize', fit); document.addEventListener('keydown', onKey, true);
+  const api = {
+    addPages(newItems) {
+      const fresh = newItems.filter(it => !st.pages.some(p => p.it === it));
+      if (!fresh.length) return;
+      fresh.forEach(it => st.pages.push({ it, prev: null, m: null, mq: '', strokes: [], out: null, key: '' }));
+      st.idx = st.pages.length - fresh.length; st.brush = null;
+      renderHead(); renderBar(); process(st.idx);
+    },
+  };
+  scanStudio = api;
+  renderHead(); renderBar(); busy('Đang mở ảnh…');
+  await process(st.idx);
+}
 
 const TOOLS = [
   {
@@ -3039,40 +3385,9 @@ const TOOLS = [
   },
   {
     id: 'rmbg', short: 'Xoá phông', group: 'Xử lý ảnh', name: 'Xoá phông nền', conv: 'Ảnh → ảnh đã tách nền',
-    desc: 'Tách người, sản phẩm hoặc đồ vật khỏi nền ảnh, giữ nguyên độ phân giải gốc. Xuất PNG nền trong suốt, hoặc thay bằng nền trắng, xanh, đỏ cho ảnh thẻ.',
-    exts: ['jpg', 'jpeg', 'png', 'webp', 'bmp'], multiple: true, action: 'Xoá phông',
-    opts: [
-      { id: 'bg', label: 'Nền sau khi xoá', type: 'select', value: 'none', choices: [['none', 'Trong suốt (PNG)'], ['white', 'Trắng (JPG)'], ['blue', 'Xanh dương, ảnh thẻ (JPG)'], ['red', 'Đỏ, ảnh thẻ (JPG)']] },
-      { id: 'edge', label: 'Độ sắc của viền', type: 'select', value: 'normal', choices: [['soft', 'Mềm, hợp tóc và lông'], ['normal', 'Chuẩn'], ['sharp', 'Sắc, hợp đồ vật cứng']] },
-    ],
-    async run(items, o, ui) {
-      const colors = { white: [255, 255, 255], blue: [66, 133, 222], red: [214, 40, 40] };
-      const bg = colors[o.bg] || null, files = [];
-      let shrunk = 0;
-      for (let i = 0; i < items.length; i++) {
-        ui.check();
-        ui.span(i / items.length, (i + 1) / items.length);
-        const label = items.length > 1 ? `Ảnh ${i + 1}/${items.length}` : 'Ảnh';
-        ui.sub(`${label} · mở ảnh`, 0.02); await sleep(0);
-        const { img, url } = await loadImageEl(items[i].file);
-        let w = img.naturalWidth, h = img.naturalHeight;
-        const k = Math.min(1, Math.sqrt(RMBG.MAX_PIXELS / (w * h)));      // giới hạn canvas của trình duyệt (khoảng 16,7 triệu điểm ảnh)
-        if (k < 1) { w = Math.floor(w * k); h = Math.floor(h * k); shrunk++; }
-        const c = document.createElement('canvas'); c.width = w; c.height = h;
-        c.getContext('2d').drawImage(img, 0, 0, w, h); URL.revokeObjectURL(url);
-        const outC = await RMBG.run(c, { bg, edge: o.edge }, ui, label);
-        freeCanvas(c);
-        ui.sub(`${label} · lưu ảnh`, 0.97); await sleep(0);
-        const png = !bg;
-        const blob = await canvasBlob(outC, png ? 'image/png' : 'image/jpeg', 0.95);
-        const t = document.createElement('canvas'); const tk = Math.min(1, 320 / Math.max(w, h)); t.width = Math.max(1, Math.round(w * tk)); t.height = Math.max(1, Math.round(h * tk));
-        t.getContext('2d').drawImage(outC, 0, 0, t.width, t.height);
-        const thumb = await canvasBlob(t, 'image/png'); freeCanvas(t); freeCanvas(outC);
-        const name = `${safeName(baseName(items[i].name))}_xoa_phong.${png ? 'png' : 'jpg'}`;
-        files.push({ name, blob, thumb });
-      }
-      return { files, info: `${files.length} ảnh đã xoá phông, giữ nguyên kích thước${shrunk ? `; ${shrunk} ảnh quá lớn so với giới hạn của trình duyệt nên đã thu nhỏ nhẹ` : ''}.` };
-    },
+    desc: 'Tách người, sản phẩm hoặc đồ vật khỏi nền ảnh, giữ nguyên độ phân giải gốc. Chụp hoặc chọn ảnh, xem lại, đổi nền trong suốt, trắng, xanh, đỏ hoặc màu tuỳ chọn rồi lưu.',
+    exts: ['jpg', 'jpeg', 'png', 'webp', 'bmp'], multiple: true, studio: true, action: 'Mở màn hình xoá phông',
+    opts: [],
   },
   {
     id: 'merge', short: 'Ghép PDF', group: 'Ghép & tách', name: 'Ghép PDF', conv: 'PDF + PDF → PDF',
@@ -4021,7 +4336,7 @@ async function run() {
 
 /* ---------- ứng dụng cài được: chia sẻ file, nhận file, cài đặt, chạy khi mất mạng ---------- */
 let incoming = [];
-const ALL_ASSETS = ["ort.wasm.min.js", "ort-wasm-simd.wasm", "u2netp.onnx", "./", "manifest.json", "fonts.css", "dancing-script-latin-600-normal.woff2", "Tinos-Bold.ttf", "Tinos-Regular.ttf", "be-vietnam-pro-latin-400-normal.woff2", "be-vietnam-pro-latin-500-normal.woff2", "be-vietnam-pro-latin-600-normal.woff2", "be-vietnam-pro-latin-700-normal.woff2", "be-vietnam-pro-latin-ext-400-normal.woff2", "be-vietnam-pro-latin-ext-500-normal.woff2", "be-vietnam-pro-latin-ext-600-normal.woff2", "be-vietnam-pro-latin-ext-700-normal.woff2", "be-vietnam-pro-vietnamese-400-normal.woff2", "be-vietnam-pro-vietnamese-500-normal.woff2", "be-vietnam-pro-vietnamese-600-normal.woff2", "be-vietnam-pro-vietnamese-700-normal.woff2", "ibm-plex-mono-latin-400-normal.woff2", "ibm-plex-mono-latin-500-normal.woff2", "apple-touch-icon.png", "favicon-32.png", "icon-192.png", "icon-512.png", "maskable-512.png", "shortcut-96.png", "pdf-lib.min.js", "pdf.min.js", "pdf.worker.min.js", "fontkit.umd.min.js", "jszip.min.js", "xlsx.full.min.js", "pptxgen.bundle.js", "docx-preview.min.js", "html2canvas.min.js", "tesseract.min.js", "worker.min.js", "tesseract-core-simd-lstm.wasm.js", "tesseract-core-lstm.wasm.js", "vie.traineddata.gz"];
+const ALL_ASSETS = ["ort.wasm.min.js", "ort-wasm-simd.wasm", "ort-wasm-simd-threaded.wasm", "bgm-1.wasm", "bgm-2.wasm", "bgm-3.wasm", "bgm-4.wasm", "./", "manifest.json", "fonts.css", "dancing-script-latin-600-normal.woff2", "Tinos-Bold.ttf", "Tinos-Regular.ttf", "be-vietnam-pro-latin-400-normal.woff2", "be-vietnam-pro-latin-500-normal.woff2", "be-vietnam-pro-latin-600-normal.woff2", "be-vietnam-pro-latin-700-normal.woff2", "be-vietnam-pro-latin-ext-400-normal.woff2", "be-vietnam-pro-latin-ext-500-normal.woff2", "be-vietnam-pro-latin-ext-600-normal.woff2", "be-vietnam-pro-latin-ext-700-normal.woff2", "be-vietnam-pro-vietnamese-400-normal.woff2", "be-vietnam-pro-vietnamese-500-normal.woff2", "be-vietnam-pro-vietnamese-600-normal.woff2", "be-vietnam-pro-vietnamese-700-normal.woff2", "ibm-plex-mono-latin-400-normal.woff2", "ibm-plex-mono-latin-500-normal.woff2", "apple-touch-icon.png", "favicon-32.png", "icon-192.png", "icon-512.png", "maskable-512.png", "shortcut-96.png", "pdf-lib.min.js", "pdf.min.js", "pdf.worker.min.js", "fontkit.umd.min.js", "jszip.min.js", "xlsx.full.min.js", "pptxgen.bundle.js", "docx-preview.min.js", "html2canvas.min.js", "tesseract.min.js", "worker.min.js", "tesseract-core-simd-lstm.wasm.js", "tesseract-core-lstm.wasm.js", "vie.traineddata.gz"];
 function canShareFile(f) { try { return !!(navigator.canShare && navigator.canShare({ files: [f] })); } catch (e) { return false; } }
 async function shareFile(f) {
   try { await navigator.share({ files: [f], title: f.name }); }

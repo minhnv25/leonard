@@ -1,5 +1,5 @@
 /* Scan - PDF service worker, phiên bản 20261025-1330 */
-const VERSION = 'xuongpdf-20261026-0120';
+const VERSION = 'xuongpdf-20261026-0215';
 const CORE = ["./", "index.html", "manifest.json", "fonts.css", "pdf.min.js", "pdf.worker.min.js", "pdf-lib.min.js", "icon-192.png", "favicon-32.png", "apple-touch-icon.png", "be-vietnam-pro-latin-400-normal.woff2", "be-vietnam-pro-latin-500-normal.woff2", "be-vietnam-pro-latin-600-normal.woff2", "be-vietnam-pro-latin-700-normal.woff2", "be-vietnam-pro-latin-ext-400-normal.woff2", "be-vietnam-pro-latin-ext-500-normal.woff2", "be-vietnam-pro-latin-ext-600-normal.woff2", "be-vietnam-pro-latin-ext-700-normal.woff2", "be-vietnam-pro-vietnamese-400-normal.woff2", "be-vietnam-pro-vietnamese-500-normal.woff2", "be-vietnam-pro-vietnamese-600-normal.woff2", "be-vietnam-pro-vietnamese-700-normal.woff2", "ibm-plex-mono-latin-400-normal.woff2", "ibm-plex-mono-latin-500-normal.woff2"];
 
 self.addEventListener('install', e => {
@@ -13,6 +13,15 @@ self.addEventListener('activate', e => {
     await self.clients.claim();
   })());
 });
+
+// Bật chế độ cách ly (COOP/COEP) cho trang để bộ xoá phông chạy được nhiều luồng CPU. Mọi tài nguyên của ứng dụng đều cùng nguồn nên không bị chặn.
+function isolate(res) {
+  if (!res || res.type === 'opaqueredirect' || res.status === 0) return res;
+  const h = new Headers(res.headers);
+  h.set('Cross-Origin-Opener-Policy', 'same-origin');
+  h.set('Cross-Origin-Embedder-Policy', 'require-corp');
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+}
 
 self.addEventListener('fetch', e => {
   const req = e.request;
@@ -38,9 +47,10 @@ self.addEventListener('fetch', e => {
         const fresh = await fetch(req);
         const c = await caches.open(VERSION);
         c.put('./', fresh.clone());
-        return fresh;
+        return isolate(fresh);
       } catch (err) {
-        return (await caches.match('./')) || (await caches.match('index.html')) || Response.error();
+        const hit = (await caches.match('./')) || (await caches.match('index.html'));
+        return hit ? isolate(hit) : Response.error();
       }
     })());
     return;
