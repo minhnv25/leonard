@@ -227,6 +227,12 @@ h1{font-size:26px;line-height:1.2;margin:0;letter-spacing:-.015em;text-wrap:bala
 .ibtn:hover:not(:disabled){border-color:var(--line-2);color:var(--ink)}
 .ibtn:disabled{opacity:.35;cursor:default}
 
+.frow{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.frow.fdragging{opacity:.28}
+.fdrag-ghost{position:fixed;z-index:80;margin:0;pointer-events:none;opacity:.95;transform:scale(1.06);filter:drop-shadow(0 10px 18px rgba(0,0,0,.32))}
+.fhint{grid-column:1/-1;font-size:12px;color:var(--ink-3);margin:-4px 0 0}
+.frow input{-webkit-user-select:text;user-select:text}
+
 .extra:empty{display:none}
 .extra h3,.opts-title{font-size:13px;font-weight:600;margin:0 0 8px;color:var(--ink-2);letter-spacing:.01em}
 .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:10px;max-height:420px;overflow:auto;padding:2px}
@@ -3535,17 +3541,14 @@ function renderFiles() {
       main.append(el('div', { class: 'frange' }, el('label', { for: rid, text: 'Lấy trang' }), el('input', { id: rid, type: 'text', value: it.range, placeholder: 'tất cả', autocomplete: 'off', oninput: e => { it.range = e.target.value; } })));
     }
     const ctl = el('div', { class: 'fctl' });
-    if (tool.multiple) {
-      ctl.append(el('button', { type: 'button', class: 'ibtn', 'aria-label': `Đưa ${it.name} lên`, disabled: i === 0 ? true : null, onclick: () => { [items[i - 1], items[i]] = [items[i], items[i - 1]]; renderFiles(); } }, '‹'));
-      ctl.append(el('button', { type: 'button', class: 'ibtn', 'aria-label': `Đưa ${it.name} xuống`, disabled: i === items.length - 1 ? true : null, onclick: () => { [items[i + 1], items[i]] = [items[i], items[i + 1]]; renderFiles(); } }, '›'));
-    }
     ctl.append(el('button', { type: 'button', class: 'ibtn', 'aria-label': `Bỏ ${it.name}`, onclick: () => { items.splice(i, 1); if (!items.length) { $('#extra').innerHTML = ''; extraState = {}; } renderFiles(); } }, '×'));
     const prev = el('div', { class: 'fprev' + (it.thumbUrl ? '' : it.metaErr ? ' err' : ' loading') });
     if (it.thumbUrl) prev.append(el('img', { class: 'fthumb', src: it.thumbUrl, alt: '' }));
     else prev.append(el('span', { class: 'fext', text: (extOf(it.name) || 'file').toUpperCase() }));
     prev.append(el('span', { class: 'fidx', text: String(i + 1) }), ctl);
-    ul.append(el('li', { class: 'frow' }, prev, main));
+    ul.append(el('li', { class: 'frow', 'data-i': i }, prev, main));
   });
+  if (tool.multiple && items.length > 1) ul.append(el('li', { class: 'fhint', text: 'Nhấn giữ một file rồi kéo để đổi thứ tự' }));
   if (!items.length) $('#extra').innerHTML = '';
   const min = tool.minFiles || 1;
   const ok = items.length >= min && !items.some(x => x.metaErr);
@@ -3553,6 +3556,68 @@ function renderFiles() {
   $('#runHint').textContent = items.some(x => x.metaErr) ? 'Bỏ file bị lỗi ra để tiếp tục'
     : items.length < min ? (min > 1 && items.length === 1 ? 'Thêm ít nhất 1 file nữa' : 'Thêm file để bắt đầu')
     : `${items.length} file sẵn sàng`;
+}
+
+/* Kéo thả file trong danh sách tải lên: điện thoại nhấn giữ khoảng 0,4 giây rồi kéo; chuột nhấn giữ rồi kéo. Thả ra là đổi thứ tự. */
+function fileDragSort(ul) {
+  let d = null;
+  const rows = () => [...ul.querySelectorAll('.frow')];
+  const cancel = () => { if (d) { clearTimeout(d.timer); d = null; } };
+  function begin() {
+    if (!d || d.started) return;
+    d.started = true;
+    const r = d.t.getBoundingClientRect();
+    d.ox = d.x - r.left; d.oy = d.y - r.top;
+    const g = d.t.cloneNode(true);
+    g.classList.add('fdrag-ghost'); g.style.width = r.width + 'px';
+    g.style.left = r.left + 'px'; g.style.top = r.top + 'px';
+    document.body.append(g); d.g = g;
+    d.t.classList.add('fdragging');
+    try { navigator.vibrate && navigator.vibrate(15); } catch (e) { /* */ }
+  }
+  function moveTo(x, y) {
+    d.g.style.left = (x - d.ox) + 'px'; d.g.style.top = (y - d.oy) + 'px';
+    const els = rows(); let best = -1, bd = Infinity;
+    els.forEach((t, k) => { const r = t.getBoundingClientRect(); const dd = (r.left + r.width / 2 - x) ** 2 + (r.top + r.height / 2 - y) ** 2; if (dd < bd) { bd = dd; best = k; } });
+    const cur = els.indexOf(d.t);
+    if (best >= 0 && best !== cur) { const ref = els[best]; if (best > cur) ref.after(d.t); else ref.before(d.t); }
+    if (y < 70) window.scrollBy(0, -14); else if (y > window.innerHeight - 70) window.scrollBy(0, 14);
+  }
+  ul.addEventListener('pointerdown', e => {
+    const t = e.target.closest('.frow');
+    if (!t || !tool || !tool.multiple || items.length < 2 || e.target.closest('button, input, label') || (e.button != null && e.button !== 0)) return;
+    cancel();
+    d = { t, from: rows().indexOf(t), pid: e.pointerId, sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, started: false, touch: e.pointerType !== 'mouse' };
+    if (d.touch) d.timer = setTimeout(begin, 400);
+  });
+  ul.addEventListener('pointermove', e => {
+    if (!d || e.pointerId !== d.pid) return;
+    d.x = e.clientX; d.y = e.clientY;
+    const dist = Math.hypot(e.clientX - d.sx, e.clientY - d.sy);
+    if (!d.started) {
+      if (d.touch) { if (dist > 10) cancel(); return; }
+      if (dist < 6) return;
+      begin();
+    }
+    e.preventDefault(); moveTo(e.clientX, e.clientY);
+  });
+  const end = e => {
+    if (!d || (e && e.pointerId !== d.pid)) return;
+    clearTimeout(d.timer);
+    if (d.started) {
+      const order = rows().map(r => +r.dataset.i), from = d.from, to = rows().indexOf(d.t);
+      d.g.remove(); d.t.classList.remove('fdragging');
+      d = null;
+      if (to !== from && order.length === items.length) { items = order.map(i => items[i]); renderFiles(); }
+      return;
+    }
+    d = null;
+  };
+  ul.addEventListener('pointerup', end);
+  ul.addEventListener('pointercancel', e => { if (d && d.started) end(e); else cancel(); });
+  ul.addEventListener('touchmove', e => { if (d && d.started) e.preventDefault(); }, { passive: false });
+  ul.addEventListener('contextmenu', e => { if (d) e.preventDefault(); });
+  ul.addEventListener('dragstart', e => e.preventDefault());
 }
 
 /* split: page thumbnails */
@@ -3995,6 +4060,7 @@ async function pvZip(r, s) {
 /* ---------- wiring ---------- */
 function init() {
   buildRail();
+  fileDragSort($('#fileList'));
   const drop = $('#drop');
   const input = $('#fileInput');
   input.addEventListener('change', () => { scanSource = 'file'; addFiles(input.files); input.value = ''; });
