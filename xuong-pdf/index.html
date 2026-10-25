@@ -2918,7 +2918,7 @@ const PAGES_OPT = { id: 'pages', label: 'Trang cần lấy', type: 'text', place
 const TOOLS = [
   {
     id: 'scan', short: 'Scan', group: 'Scan & nhận dạng chữ', name: 'Scan tài liệu', conv: 'Ảnh chụp → PDF scan',
-    desc: 'Chụp ảnh hoặc chọn ảnh có sẵn thành file PDF rõ nét. App tự tìm 4 góc tờ giấy, làm sáng chữ, bỏ đổ bóng, cho chọn kiểu màu và ghép nhiều trang vào một file.',
+    desc: 'Chụp hoặc chọn ảnh giấy tờ để thành file PDF rõ nét. App tự tìm 4 góc tờ giấy, làm sáng chữ, bỏ đổ bóng, cho chọn kiểu màu và ghép nhiều trang vào một file.',
     exts: ['jpg', 'jpeg', 'png', 'webp', 'bmp'], multiple: true, studio: true, action: 'Mở màn hình scan',
     opts: [],
     sample: async () => [await samplePhotoFile()],
@@ -2989,7 +2989,7 @@ const TOOLS = [
   },
   {
     id: 'merge', short: 'Ghép PDF', group: 'Ghép & tách', name: 'Ghép PDF', conv: 'PDF + PDF → PDF',
-    desc: 'Gộp nhiều file PDF thành một. Sắp xếp thứ tự bằng các nút mũi tên, mỗi file có thể chỉ lấy một số trang.',
+    desc: 'Gộp nhiều file PDF thành một theo thứ tự trong danh sách. Mỗi file có thể chỉ lấy một số trang.',
     exts: ['pdf'], multiple: true, action: 'Ghép thành 1 file', minFiles: 2, rangePerFile: true,
     opts: [{ id: 'name', label: 'Tên file kết quả', type: 'text', placeholder: 'Ghep_tai_lieu' }],
     sample: async () => [new File([await samplePdfBytes(7, 'A')], 'Bang_ke_mau_A.pdf', { type: 'application/pdf' }), new File([await samplePdfBytes(19, 'B')], 'Bang_ke_mau_B.pdf', { type: 'application/pdf' })],
@@ -3015,7 +3015,7 @@ const TOOLS = [
   },
   {
     id: 'split', short: 'Tách PDF', group: 'Ghép & tách', name: 'Tách PDF', conv: 'PDF → nhiều PDF',
-    desc: 'Tách một file PDF theo từng trang, theo khoảng trang, hoặc trích các trang bạn chọn ra file mới.',
+    desc: 'Tách PDF theo từng trang, theo khoảng trang, hoặc trích các trang bạn chọn ra file mới.',
     exts: ['pdf'], multiple: false, action: 'Tách file', thumbs: true,
     opts: [
       { id: 'mode', label: 'Cách tách', type: 'select', value: 'ranges', choices: [['ranges', 'Theo khoảng trang'], ['each', 'Mỗi trang một file'], ['everyN', 'Cứ N trang một file'], ['selected', 'Trích các trang đã chọn thành 1 file']] },
@@ -3050,7 +3050,7 @@ const TOOLS = [
   },
   {
     id: 'pdf2word', short: 'PDF → Word', group: 'Từ PDF', name: 'PDF sang Word', conv: 'PDF → DOCX',
-    desc: 'Lấy chữ trong PDF ra file Word để sửa. Giữ đoạn văn, căn lề, chữ đậm và cỡ chữ; PDF scan được nhận dạng chữ tự động.',
+    desc: 'Chuyển PDF thành file Word sửa được, giữ đoạn văn, căn lề, chữ đậm và cỡ chữ. PDF scan được nhận dạng chữ tự động.',
     note: ['Bảng biểu chuyển thành dòng chữ cách bằng tab, hình ảnh không được lấy. Cần giữ bố cục đầy đủ thì dùng bản máy tính.', 'Chọn "Giữ nguyên hình thức" nếu chỉ cần mở bằng Word mà không sửa chữ.'],
     exts: ['pdf'], multiple: false, action: 'Chuyển sang Word',
     opts: [
@@ -3123,7 +3123,7 @@ const TOOLS = [
   },
   {
     id: 'pdf2excel', short: 'PDF → Excel', group: 'Từ PDF', name: 'PDF sang Excel', conv: 'PDF → XLSX',
-    desc: 'Đọc bảng số liệu trong PDF ra Excel. Cột được xác định theo vị trí chữ; số kiểu 1.234,5 được đổi thành số thật, mã có số 0 đầu được giữ nguyên.',
+    desc: 'Đọc bảng số liệu trong PDF ra Excel. Số kiểu 1.234,5 được đổi thành số thật, mã có số 0 đầu được giữ nguyên.',
     note: ['Hợp với bảng thẳng hàng xuất từ phần mềm (bảng kê, báo cáo). Bảng có ô gộp phức tạp có thể bị lệch cột, nên kiểm tra lại.'],
     exts: ['pdf'], multiple: false, action: 'Chuyển sang Excel',
     opts: [
@@ -3184,7 +3184,7 @@ const TOOLS = [
   },
   {
     id: 'pdf2ppt', short: 'PDF → PPT', group: 'Từ PDF', name: 'PDF sang PowerPoint', conv: 'PDF → PPTX',
-    desc: 'Mỗi trang PDF thành một slide, giữ nguyên hình thức để trình chiếu trong cuộc họp. Chữ của trang được chép vào phần ghi chú của slide.',
+    desc: 'Mỗi trang PDF thành một slide, giữ nguyên hình thức để trình chiếu. Chữ của trang được chép vào phần ghi chú của slide.',
     note: ['Nội dung slide là ảnh, không sửa chữ trực tiếp được.'],
     exts: ['pdf'], multiple: false, action: 'Chuyển sang PowerPoint',
     opts: [
@@ -3227,7 +3227,7 @@ const TOOLS = [
   },
   {
     id: 'pdf2img', short: 'PDF → Ảnh', group: 'Từ PDF', name: 'PDF sang ảnh', conv: 'PDF → JPG / PNG',
-    desc: 'Chụp từng trang PDF thành ảnh để gửi qua Zalo, chèn vào báo cáo hoặc in.',
+    desc: 'Xuất từng trang PDF thành ảnh để gửi qua Zalo, chèn vào báo cáo hoặc in.',
     exts: ['pdf'], multiple: false, action: 'Xuất ảnh',
     opts: [
       { id: 'fmt', label: 'Định dạng', type: 'select', value: 'jpg', choices: [['jpg', 'JPG (nhẹ, hợp gửi tin nhắn)'], ['png', 'PNG (nét, nặng hơn)']] },
@@ -3296,7 +3296,7 @@ const TOOLS = [
   },
   {
     id: 'ocr', short: 'OCR chữ', group: 'Scan & nhận dạng chữ', name: 'Nhận dạng chữ (OCR)', conv: 'Ảnh / PDF → PDF có chữ',
-    desc: 'Biến ảnh chụp hoặc PDF scan thành PDF có chữ, tìm kiếm (Ctrl+F) và sao chép được. Hình thức giữ nguyên; ảnh được cắt, làm rõ như Scan trước khi nhận dạng.',
+    desc: 'Biến ảnh chụp hoặc PDF scan thành PDF có chữ: tìm kiếm (Ctrl+F) và sao chép được, hình thức giữ nguyên. Ảnh được cắt và làm rõ như Scan trước khi nhận dạng.',
     exts: ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'bmp'], multiple: true, studio: true, action: 'Nhận dạng chữ',
     opts: [
       { id: 'dpi', label: 'Mức kỹ (chỉ khi chọn PDF)', type: 'select', value: '200', choices: [['150', 'Nhanh'], ['200', 'Chuẩn (khuyên dùng)'], ['300', 'Kỹ, cho chữ nhỏ']] },
